@@ -1,0 +1,47 @@
+# =========================
+# Monorepo: Laravel + React
+# =========================
+
+# Laravel backend
+/backend/vendor/
+/backend/node_modules/
+/backend/bootstrap/cache/
+/backend/storage/logs/
+/backend/public/storage/
+/backend/.env
+/backend/.env.local
+/backend/*.pem
+
+# React frontend
+/frontend/node_modules/
+/frontend/build/
+/frontend/dist/
+/frontend/.env.local
+/frontend/.env.development.local
+/frontend/.env.test.local
+/frontend/.env.production.local
+
+# Environment files (root)
+.env
+.env.backup
+.env*.local
+
+# Logs
+/backend/npm-debug.log*
+/frontend/npm-debug.log*
+/frontend/yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE/editor files
+.idea/
+.vscode/
+/backend/.idea/
+/backend/.vscode/
+/frontend/.idea/
+/frontend/.vscode/
+*.swp
+*.swo
+*~
