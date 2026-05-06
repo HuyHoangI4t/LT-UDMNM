@@ -9,7 +9,9 @@
         "php": "^8.2",
         "darkaonline/l5-swagger": "^11.0",
         "laravel/framework": "^12.0",
-        "laravel/tinker": "^2.10.1"
+        "laravel/sanctum": "^4.0",
+        "laravel/tinker": "^2.10.1",
+        "openai-php/laravel": "^0.19.1"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
@@ -42,8 +44,9 @@
             "npm run build"
         ],
         "dev": [
-            "Composer\\Config::disableProcessTimeout",
-            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1 --timeout=0\" \"php artisan pail --timeout=0\" \"npm run dev\" --names=server,queue,logs,vite --kill-others"
+            "@php artisan optimize:clear",
+            "@php artisan l5-swagger:generate",
+            "@php artisan serve"
         ],
         "test": [
             "@php artisan config:clear --ansi",
