@@ -46,7 +46,7 @@
         "dev": [
             "@php artisan optimize:clear",
             "@php artisan l5-swagger:generate",
-            "@php artisan serve --timeout=0"
+            "@php artisan serve"
         ],
         "test": [
             "@php artisan config:clear --ansi",
