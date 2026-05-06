@@ -11,6 +11,8 @@ use OpenApi\Attributes as OA; // <--- SỬA THÀNH ATTRIBUTES
 
 class ChatbotController extends Controller
 {
+
+
     protected $aiChatService;
 
     public function __construct(AiChatService $aiChatService)

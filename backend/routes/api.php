@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\ChatbotController;
 use App\Http\Controllers\Api\ChatLogController;
 
+
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -26,3 +27,4 @@ Route::post('/chat', [ChatbotController::class, 'chat']);
 Route::get('/chat-logs', [ChatLogController::class, 'index']);
 Route::get('/chat-logs/{id}', [ChatLogController::class, 'show']);
 Route::delete('/chat-logs/{id}', [ChatLogController::class, 'destroy']);
+Route::post('/chat', [ChatbotController::class, 'chat']);

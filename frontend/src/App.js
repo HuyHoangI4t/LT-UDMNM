@@ -1,6 +1,7 @@
 import './App.css';
 import { useEffect, useState } from 'react';
 import axios from 'axios';
+import ChatAi from './components/ChatAi';
 import Header from './components/Header';
 import ProductList from './components/ProductList';
 
@@ -43,6 +44,7 @@ function App() {
 
   return (
     <div className="App">
+      <ChatAi /> abc
       <Header apiHealth={apiHealth} />
       <main className="container">
         {error && <div className="error-message">{error}</div>}
