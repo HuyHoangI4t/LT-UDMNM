@@ -30,7 +30,7 @@ php artisan key:generate
 php artisan l5-swagger:generate
 
 # Start server
-php artisan serve
+php artisan serve or composer dev
 ```
 
 The API will be available at: **http://localhost:8000**
