@@ -1,81 +1,107 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import axios from 'axios';
-import ReactMarkdown from 'react-markdown';
+
+const API_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000/api';
+
+const quickQuestions = [
+    'Học phí ngành công nghệ thông tin bao nhiêu?',
+    'Trường có xét học bạ không?',
+    'Tôi muốn học marketing thì nên chọn ngành nào?',
+];
+
+const defaultMessage =
+    'Xin chào! Tôi là trợ lý tuyển sinh. Hãy hỏi tôi về ngành học, học phí, hồ sơ hoặc cơ hội việc làm.';
 
 const ChatAi = () => {
     const [message, setMessage] = useState('');
-    const [chatHistory, setChatHistory] = useState([]);
+    const [chatHistory, setChatHistory] = useState([
+        { role: 'ai', text: defaultMessage },
+    ]);
     const [loading, setLoading] = useState(false);
 
-    const handleSend = async () => {
-        if (!message.trim()) return;
+    const canSend = useMemo(() => message.trim().length > 0 && !loading, [message, loading]);
 
-        const newHistory = [...chatHistory, { role: 'user', text: message }];
-        setChatHistory(newHistory);
+    const handleSend = async (customMessage) => {
+        const text = (customMessage ?? message).trim();
+        if (!text || loading) return;
+
+        const updatedHistory = [...chatHistory, { role: 'user', text }];
+        setChatHistory(updatedHistory);
         setMessage('');
         setLoading(true);
 
         try {
-            const response = await axios.post('http://127.0.0.1:8000/api/chat', {
-                message: message,
-                platform: 'web'
+            const response = await axios.post(`${API_URL}/chat`, {
+                message: text,
+                platform: 'web',
             });
 
-            if (response.data.status === 'success') {
-                // FIX Ở ĐÂY: Lấy response.data.data.reply (là chuỗi văn bản)
-                // thay vì response.data.data (là object)
-                const aiReply = response.data.data.reply; 
-                
-                setChatHistory([...newHistory, { role: 'ai', text: aiReply }]);
-            }
+            const reply = response?.data?.data?.reply || 'Mình chưa nhận được phản hồi phù hợp.';
+            setChatHistory([...updatedHistory, { role: 'ai', text: reply }]);
         } catch (error) {
-            console.error("Lỗi kết nối:", error);
-            setChatHistory([...newHistory, { role: 'ai', text: "Lỗi: Không thể kết nối đến server!" }]);
+            console.error('Chat error:', error);
+            setChatHistory([
+                ...updatedHistory,
+                {
+                    role: 'ai',
+                    text: 'Không thể kết nối chatbot lúc này. Hãy thử lại sau.',
+                },
+            ]);
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div style={{ padding: '20px', maxWidth: '600px', margin: '0 auto' }}>
-            <h2>Gemini AI Chat</h2>
-            <div style={{ border: '1px solid #ccc', height: '400px', overflowY: 'scroll', padding: '10px', marginBottom: '10px' }}>
+        <section className="chat-card">
+            <div className="chat-card__header">
+                <div>
+                    <span className="section-tag">Chat bot</span>
+                    <h2>Hỏi đáp tuyển sinh</h2>
+                </div>
+                <span className="chat-status">Online</span>
+            </div>
+
+            <div className="chat-card__messages" aria-live="polite">
                 {chatHistory.map((item, index) => (
-                    <div key={index} style={{ textAlign: item.role === 'user' ? 'right' : 'left', margin: '10px 0' }}>
-                        <div style={{ 
-                            display: 'inline-block',
-                            background: item.role === 'user' ? '#007bff' : '#eee', 
-                            color: item.role === 'user' ? 'white' : 'black',
-                            padding: '0px 12px', borderRadius: '10px',
-                            textAlign: 'left' // Đảm bảo text markdown căn lề trái bên trong bubble
-                        }}>
-                            {/* Ép kiểu về string để an toàn tuyệt đối cho ReactMarkdown */}
-                            <ReactMarkdown>{String(item.text)}</ReactMarkdown>
-                        </div>
+                    <div
+                        key={`${item.role}-${index}`}
+                        className={`chat-bubble chat-bubble--${item.role}`}
+                    >
+                        {item.text}
                     </div>
                 ))}
-                {loading && <p><i>AI đang trả lời...</i></p>}
+                {loading && <div className="chat-bubble chat-bubble--ai">Đang trả lời...</div>}
             </div>
-            
-            <div style={{ display: 'flex', gap: '10px' }}>
-                <input 
-                    type="text" 
-                    value={message} 
+
+            <div className="chat-quick-actions">
+                {quickQuestions.map((question) => (
+                    <button
+                        key={question}
+                        type="button"
+                        className="chip"
+                        onClick={() => handleSend(question)}
+                        disabled={loading}
+                    >
+                        {question}
+                    </button>
+                ))}
+            </div>
+
+            <div className="chat-card__composer">
+                <input
+                    type="text"
+                    value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-                    style={{ flex: 1, padding: '10px' }} 
-                    placeholder="Nhập câu hỏi..."
+                    onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                    placeholder="Nhập câu hỏi của bạn..."
                     disabled={loading}
                 />
-                <button 
-                    onClick={handleSend} 
-                    style={{ padding: '10px 20px', cursor: 'pointer' }}
-                    disabled={loading}
-                >
-                    {loading ? '...' : 'Gửi'}
+                <button type="button" onClick={() => handleSend()} disabled={!canSend}>
+                    {loading ? 'Đang gửi...' : 'Gửi'}
                 </button>
             </div>
-        </div>
+        </section>
     );
 };
 
