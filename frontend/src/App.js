@@ -1,29 +1,11 @@
 import './App.css';
 import ChatAi from './components/ChatAi';
-
-const majors = [
-  {
-    title: 'Công nghệ thông tin',
-    description: 'Lập trình, AI, dữ liệu, an ninh mạng và phát triển phần mềm hiện đại.',
-  },
-  {
-    title: 'Quản trị kinh doanh',
-    description: 'Marketing, vận hành, tài chính và kỹ năng quản lý doanh nghiệp.',
-  },
-  {
-    title: 'Thiết kế đồ họa',
-    description: 'Thiết kế UI/UX, nhận diện thương hiệu và sáng tạo nội dung số.',
-  },
-  {
-    title: 'Ngôn ngữ Anh',
-    description: 'Giao tiếp quốc tế, biên phiên dịch và cơ hội nghề nghiệp rộng mở.',
-  },
-];
+import majorsData from './data/majors.json';
 
 const highlights = [
-  { value: '120+', label: 'Ngành & chuyên ngành' },
+  { value: '37', label: 'Ngành & chuyên ngành' },
   { value: '98%', label: 'Sinh viên hài lòng' },
-  { value: '30+', label: 'Câu lạc bộ học thuật' },
+  { value: '10+', label: 'Câu lạc bộ học thuật' },
   { value: '24/7', label: 'Tư vấn tuyển sinh' },
 ];
 
@@ -36,6 +18,41 @@ const steps = [
 function App() {
   return (
     <div className="app-shell">
+      <nav className="sidebar">
+        <div className="logo">
+          <img src="/images/logo.png" alt="Logo"/>
+        </div>
+        
+        <ul className="sidebar__menu">
+          <li className="active"><a href="/">Trang chủ</a></li>
+          <li><a href="#majors">Giới thiệu ngành đào tạo</a></li>
+          <li><a href="#">Tuyển sinh Đại học</a></li>
+          <li><a href="#">Tuyển sinh Sau Đại học</a></li>
+          <li><a href="#">Tuyển sinh VHVL</a></li>
+          <li><a href="#">Các lớp ngắn hạn</a></li>
+          <li><a href="#">Liên kết đào tạo</a></li>
+          <li><a href="#">Cơ hội việc làm</a></li>
+          <li><a href="#">Đăng ký tư vấn</a></li>
+        </ul>
+
+        <div className="sidebar__social">
+          <span className="icon">FB</span>
+          <span className="icon">YT</span>
+          <span className="icon">TK</span>
+        </div>
+
+        <div className="sidebar__contact">
+          <p>0965.164.445</p>
+          <p>tuyensinh@ttn.edu.vn</p>
+        </div>
+
+        <div className="sidebar__search">
+          <input type="text" placeholder="Search..." />
+          <button>🔍</button>
+        </div>
+      </nav>
+
+      <div className="main-wrapper">
       <header className="hero">
         <div className="hero__content">
           <span className="eyebrow">Tuyển sinh đại học 2026</span>
@@ -77,7 +94,7 @@ function App() {
         </div>
       </header>
 
-      <main className="main-content">
+        <main className="main-content">
         <section className="section" id="majors">
           <div className="section-heading">
             <span className="section-tag">Ngành đào tạo</span>
@@ -85,11 +102,11 @@ function App() {
           </div>
 
           <div className="majors-grid">
-            {majors.map((major) => (
-              <article className="major-card" key={major.title}>
+            {majorsData.map((major) => (
+              <article className="major-card" key={major.code || major.name}>
                 <div className="major-card__icon">★</div>
-                <h3>{major.title}</h3>
-                <p>{major.description}</p>
+                <h3>{major.name}</h3>
+                {major.code && <p className="major-code">Mã: {major.code}</p>}
               </article>
             ))}
           </div>
@@ -134,6 +151,7 @@ function App() {
           </div>
         </section>
       </main>
+      </div>
     </div>
   );
 }

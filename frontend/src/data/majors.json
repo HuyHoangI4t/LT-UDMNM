@@ -1,0 +1,150 @@
+[
+    {
+        "name": "Tâm lý học giáo dục",
+        "code": "7310403"
+    },
+    {
+        "name": "Công nghệ tài chính",
+        "code": "7340205"
+    },
+    {
+        "name": "Y đa khoa",
+        "code": "7720101"
+    },
+    {
+        "name": "Điều dưỡng",
+        "code": "7720301"
+    },
+    {
+        "name": "Kỹ thuật xét nghiệm y học",
+        "code": "7720601"
+    },
+    {
+        "name": "Giáo dục Mầm non",
+        "code": "7140201"
+    },
+    {
+        "name": "Giáo dục Tiểu học",
+        "code": "7140202"
+    },
+    {
+        "name": "GD Tiểu học - Tiếng J'rai",
+        "code": "7140202JR"
+    },
+    {
+        "name": "Giáo dục Chính trị",
+        "code": "7140205"
+    },
+    {
+        "name": "Giáo dục Thể chất",
+        "code": "7140206"
+    },
+    {
+        "name": "Sư phạm Toán học",
+        "code": "7140209"
+    },
+    {
+        "name": "Sư phạm Vật lý",
+        "code": "7140211"
+    },
+    {
+        "name": "Sư phạm Hóa học",
+        "code": "7140212"
+    },
+    {
+        "name": "Sư phạm Sinh học",
+        "code": "7140213"
+    },
+    {
+        "name": "Sư phạm Ngữ văn",
+        "code": "7140217"
+    },
+    {
+        "name": "Sư phạm Tiếng Anh",
+        "code": "7140231"
+    },
+    {
+        "name": "Sư phạm Khoa học tự nhiên",
+        "code": "7140247"
+    },
+    {
+        "name": "Ngôn ngữ Anh",
+        "code": "7220201"
+    },
+    {
+        "name": "Triết học",
+        "code": "7229001"
+    },
+    {
+        "name": "Văn học",
+        "code": "7229030"
+    },
+    {
+        "name": "Kinh tế",
+        "code": "7310101"
+    },
+    {
+        "name": "Kinh tế phát triển",
+        "code": "7310105"
+    },
+    {
+        "name": "Quản trị kinh doanh",
+        "code": "7340101"
+    },
+    {
+        "name": "Tài chính - Ngân hàng",
+        "code": "7340201"
+    },
+    {
+        "name": "Kinh doanh thương mại",
+        "code": "7340121"
+    },
+    {
+        "name": "Kế toán",
+        "code": "7340301"
+    },
+    {
+        "name": "Công nghệ sinh học",
+        "code": "7420201"
+    },
+    {
+        "name": "Công nghệ sinh học - Y dược",
+        "code": "7420201YD"
+    },
+    {
+        "name": "Công nghệ thông tin",
+        "code": "7480201"
+    },
+    {
+        "name": "Công nghệ thực phẩm",
+        "code": "7540101"
+    },
+    {
+        "name": "Khoa học cây trồng",
+        "code": "7620110"
+    },
+    {
+        "name": "Bảo vệ thực vật",
+        "code": "7620112"
+    },
+    {
+        "name": "Lâm sinh",
+        "code": "7620205"
+    },
+    {
+        "name": "Kinh tế nông nghiệp",
+        "code": "7620115"
+    },
+    {
+        "name": "Chăn nuôi",
+        "code": "7620105"
+    },
+    {
+        "name": "Thú y",
+        "code": "7640101"
+    },
+    {
+        "name": "Quản lí đất đai",
+        "code": "7850103"
+    }
+]

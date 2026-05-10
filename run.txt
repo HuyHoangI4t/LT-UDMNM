@@ -1,7 +1,0 @@
-php artisan serve
-Backend: http://127.0.0.1:8000
-
-npm start
-Frontend: http://localhost:3000
-
-php artisan l5-swagger:generate

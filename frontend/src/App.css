@@ -1,4 +1,5 @@
 .app-shell {
+  display: flex;
   min-height: 100vh;
   color: #0f172a;
   background:
@@ -355,5 +356,88 @@
 
   .chat-bubble {
     max-width: 92%;
+  }
+}
+/* Sidebar cố định bên trái */
+.sidebar {
+  width: 280px; /* Độ rộng thanh nav */
+  height: 100vh;
+  position: fixed; /* Giữ cố định khi cuộn trang */
+  left: 0;
+  top: 0;
+  background: #fff;
+  border-right: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 0;
+  z-index: 100;
+  overflow-y: auto; /* Cho phép cuộn nội bộ sidebar nếu menu quá dài */
+}
+
+/* Đẩy nội dung chính sang phải để không bị che */
+.main-wrapper {
+  margin-left: 280px; /* Khớp với width của sidebar */
+  flex: 1;
+  width: calc(100% - 280px);
+}
+
+/* Styling cho Menu */
+.sidebar__menu {
+  list-style: none;
+  padding: 0;
+  margin: 20px 0;
+}
+
+.sidebar__menu li {
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.sidebar__menu li a {
+  display: block;
+  padding: 12px 24px;
+  text-decoration: none;
+  color: #334155;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.sidebar__menu li:hover a, 
+.sidebar__menu li.active a {
+  color: #2563eb;
+  background: #f8fafc;
+}
+
+/* Search bar trong sidebar */
+.sidebar__search {
+  margin: 20px;
+  display: flex;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.sidebar__search input {
+  border: none;
+  padding: 8px;
+  width: 100%;
+  outline: none;
+}
+
+.sidebar__search button {
+  background: #000;
+  color: #fff;
+  border: none;
+  padding: 0 10px;
+  cursor: pointer;
+}
+
+/* Responsive: Trên mobile có thể ẩn sidebar hoặc chuyển thành dạng menu rút gọn */
+@media (max-width: 1024px) {
+  .sidebar {
+    display: none; /* Ẩn sidebar trên màn hình nhỏ */
+  }
+  .main-wrapper {
+    margin-left: 0;
+    width: 100%;
   }
 }

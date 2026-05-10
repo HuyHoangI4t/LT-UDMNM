@@ -21,12 +21,20 @@ class AiChatService
         // ĐỊA CHỈ CHÍNH XÁC MÀ BẠN VỪA CURL THÀNH CÔNG
         $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key={$apiKey}";
 
+        // Lấy quy tắc AI từ config
+        $systemPrompt = config('ai-rules.system_prompt');
+
         try {
             $response = Http::timeout(30)
                 ->withHeaders([
                     'Content-Type' => 'application/json',
                 ])
                 ->post($url, [
+                    'system_instruction' => [
+                        'parts' => [
+                            ['text' => $systemPrompt]
+                        ]
+                    ],
                     'contents' => [
                         [
                             'parts' => [
