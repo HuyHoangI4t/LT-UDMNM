@@ -371,17 +371,7 @@
   flex-direction: column;
   padding: 20px 0;
   z-index: 100;
-  /* ... các thuộc tính cũ ... */
-  overflow-y: auto;
-  
-  /* Ẩn thanh cuộn cho Chrome, Safari và Opera */
-  &::-webkit-scrollbar {
-    display: none;
-  }
-
-  /* Ẩn thanh cuộn cho IE, Edge và Firefox */
-  -ms-overflow-style: none;  /* IE và Edge */
-  scrollbar-width: none;  /* Firefox */
+  overflow-y: auto; /* Cho phép cuộn nội bộ sidebar nếu menu quá dài */
 }
 
 /* Đẩy nội dung chính sang phải để không bị che */
