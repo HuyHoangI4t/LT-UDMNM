@@ -8,14 +8,14 @@ function Header() {
       {/* Navbar Start */}
       <nav className="navbar navbar-expand-lg bg-white navbar-light shadow sticky-top p-0">
         <a href="index.html" className="navbar-brand d-flex align-items-center px-4 px-lg-5">
-          <h2 className="m-0 text-primary"><i className="fa fa-book me-3"></i>eLEARNING</h2>
+          <h2 className="m-0 text-primary"><i className="fa fa-book me-3"></i>Tuyển Sinh Đai Học</h2>
         </a>
         <button type="button" className="navbar-toggler me-4" data-bs-toggle="collapse" data-bs-target="#navbarCollapse">
           <span className="navbar-toggler-icon"></span>
         </button>
         <div className="collapse navbar-collapse" id="navbarCollapse">
           <div className="navbar-nav ms-auto p-4 p-lg-0">
-            <a href="index.html" className="nav-item nav-link active">Home</a>
+            <a href="index.html" className="nav-item nav-link active">Trang chủ</a>
             <a href="about.html" className="nav-item nav-link">About</a>
             <a href="courses.html" className="nav-item nav-link">Courses</a>
             <div className="nav-item dropdown">
