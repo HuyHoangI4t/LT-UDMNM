@@ -12,6 +12,178 @@
         }
     ],
     "paths": {
+        "/api/admissions": {
+            "get": {
+                "tags": [
+                    "Admission"
+                ],
+                "summary": "Lấy danh sách ngành học",
+                "operationId": "bb114f6cbea4b97b668b6189816e0dbb",
+                "responses": {
+                    "200": {
+                        "description": "Thành công",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "status": {
+                                            "type": "string",
+                                            "example": "success"
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Admission"
+                ],
+                "summary": "Thêm mới một ngành học",
+                "operationId": "7d2c25e5c04a714b21baa0ac23de8cf0",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "code",
+                                    "group",
+                                    "quota",
+                                    "tuition"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Kỹ thuật Phần mềm"
+                                    },
+                                    "code": {
+                                        "type": "string",
+                                        "example": "7480103"
+                                    },
+                                    "group": {
+                                        "type": "string",
+                                        "example": "A00, A01"
+                                    },
+                                    "quota": {
+                                        "type": "integer",
+                                        "example": 100
+                                    },
+                                    "tuition": {
+                                        "type": "string",
+                                        "example": "15.000.000"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Tạo mới thành công"
+                    }
+                }
+            }
+        },
+        "/api/admissions/{id}": {
+            "get": {
+                "tags": [
+                    "Admission"
+                ],
+                "summary": "Xem chi tiết một ngành học",
+                "operationId": "6d3496a2754a8cffa67cf8218a0374e4",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Thành công"
+                    },
+                    "404": {
+                        "description": "Không tìm thấy"
+                    }
+                }
+            },
+            "put": {
+                "tags": [
+                    "Admission"
+                ],
+                "summary": "Cập nhật thông tin ngành học",
+                "operationId": "faad257b034be96da7f05a1197574548",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "quota": {
+                                        "type": "integer"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Cập nhật thành công"
+                    }
+                }
+            },
+            "delete": {
+                "tags": [
+                    "Admission"
+                ],
+                "summary": "Xóa một ngành học",
+                "operationId": "aea582d4eec2e177418f45a9801b57f2",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Xóa thành công"
+                    }
+                }
+            }
+        },
         "/api/chat-logs": {
             "get": {
                 "tags": [
@@ -273,6 +445,10 @@
         }
     },
     "tags": [
+        {
+            "name": "Admission",
+            "description": "Admission"
+        },
         {
             "name": "Quản lý Dashboard",
             "description": "Quản lý Dashboard"
