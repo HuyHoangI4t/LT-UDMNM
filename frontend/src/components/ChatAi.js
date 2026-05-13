@@ -40,20 +40,32 @@ const ChatAi = () => {
         setLoading(true);
 
         try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+            
             const response = await axios.post(`${API_URL}/chat`, {
                 message: text,
                 platform: 'web',
+            }, {
+                signal: controller.signal
             });
 
+            clearTimeout(timeoutId);
             const reply = response?.data?.data?.reply || 'Mình chưa nhận được phản hồi phù hợp.';
             setChatHistory([...updatedHistory, { role: 'ai', text: reply }]);
         } catch (error) {
             console.error('Chat error:', error);
+            let errorMsg = 'Không thể kết nối chatbot lúc này. Hãy thử kiểm tra lại server.';
+            
+            if (error.code === 'ECONNABORTED') {
+                errorMsg = 'Chatbot trả lời chậm. Vui lòng thử lại.';
+            }
+            
             setChatHistory([
                 ...updatedHistory,
                 {
                     role: 'ai',
-                    text: 'Không thể kết nối chatbot lúc này. Hãy thử kiểm tra lại server.',
+                    text: errorMsg,
                 },
             ]);
         } finally {

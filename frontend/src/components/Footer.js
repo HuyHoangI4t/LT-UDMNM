@@ -72,7 +72,7 @@ function Footer() {
                         <div className="col-md-6 text-center text-md-start mb-3 mb-md-0">
                             &copy; <a className="border-bottom" href="#!">Đại Học Tây Nguyên 2026</a>, All Right Reserved.
                             <br />
-                            Phát triển bởi <a className="border-bottom" href="#!">Your Name</a>
+                            Phát triển bởi <a className="border-bottom" href="#!">Huy Hoàng</a>
                         </div>
                         <div className="col-md-6 text-center text-md-end">
                             <div className="footer-menu">

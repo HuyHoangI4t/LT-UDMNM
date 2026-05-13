@@ -25,7 +25,7 @@ class AiChatService
         $systemPrompt = config('ai-rules.system_prompt');
 
         try {
-            $response = Http::timeout(30)
+            $response = Http::timeout(15)
                 ->withHeaders([
                     'Content-Type' => 'application/json',
                 ])
