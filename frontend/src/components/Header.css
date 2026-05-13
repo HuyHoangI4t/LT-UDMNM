@@ -44,3 +44,22 @@
   color: #fff;
   border: 1px solid rgba(255, 193, 7, 0.5);
 } */
+
+/* Ensure consistent spacing between brand text and navbar items */
+.navbar-brand h2 {
+  margin-right: 28px; /* gap between brand and nav */
+  white-space: nowrap; /* prevent wrapping */
+  display: flex;
+  align-items: center;
+}
+
+@media (max-width: 768px) {
+  .navbar-brand h2 {
+    margin-right: 12px;
+  }
+}
+
+/* Ensure navbar collapse has consistent right padding so distance to page edge is preserved */
+.navbar-collapse {
+  padding-right: 24px;
+}
