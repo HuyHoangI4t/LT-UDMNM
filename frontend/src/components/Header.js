@@ -40,7 +40,7 @@ function Header() {
             </div>
             <a href="/lop-ngan-han" className="nav-item nav-link">Các lớp ngắn hạn</a>
             <a href="/lien-ket" className="nav-item nav-link">Liên kết đào tạo</a>
-            <a href="/co-hoi-viec-lam" className="nav-item nav-link">Cơ hội việc làm</a>
+            <a href="https://vieclam.ttn.edu.vn/" className="nav-item nav-link">Cơ hội việc làm</a>
           </div>
           
         </div>
