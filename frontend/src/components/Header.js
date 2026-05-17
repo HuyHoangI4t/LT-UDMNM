@@ -20,6 +20,7 @@ function Header() {
         <div className="collapse navbar-collapse" id="navbarCollapse">
           <div className="navbar-nav ms-auto p-4 p-lg-0">
             <a href="/" className="nav-item nav-link active">Trang chủ</a>
+            <a href="/chat-logs" className="nav-item nav-link">Chat Logs</a>
             <a href="#majors" className="nav-item nav-link">Giới thiệu ngành đào tạo</a>
             <div className="nav-item dropdown">
               <a

@@ -1,172 +1,253 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+﻿import React, { useMemo, useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000/api';
 
 const quickQuestions = [
-    'Học phí ngành CNTT bao nhiêu?',
-    'Trường có xét học bạ không?',
-    'Mình muốn học marketing?',
+  'Học phí ngành CNTT bao nhiêu?',
+  'Trường có xét học bạ không?',
+  'Mình muốn học marketing?',
 ];
 
 const defaultMessage = 'Xin chào! Tôi là trợ lý tuyển sinh. Hãy hỏi tôi về ngành học, học phí, hồ sơ hoặc cơ hội việc làm nhé.';
 
+const createSession = () => ({
+  id: `session-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+  title: 'Cuộc trò chuyện mới',
+  messages: [{ role: 'ai', text: defaultMessage }],
+});
+
+const formatSessionTitle = (text) => {
+  const trimmed = text.trim().replace(/\s+/g, ' ');
+  return trimmed.length <= 45 ? trimmed : `${trimmed.slice(0, 45).trim()}...`;
+};
+
 const ChatAi = () => {
-    // Trạng thái bật/tắt cửa sổ chat
-    const [isOpen, setIsOpen] = useState(false);
-    
-    // Logic của bạn giữ nguyên
-    const [message, setMessage] = useState('');
-    const [chatHistory, setChatHistory] = useState([
-        { role: 'ai', text: defaultMessage },
-    ]);
-    const [loading, setLoading] = useState(false);
-    const messagesEndRef = useRef(null);
+  const [sessions, setSessions] = useState([createSession()]);
+  const [selectedSessionId, setSelectedSessionId] = useState(sessions[0].id);
+  const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+  const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
 
-    // Tự động cuộn xuống tin nhắn mới nhất
-    useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [chatHistory, loading]);
+  const currentSession = useMemo(
+    () => sessions.find((session) => session.id === selectedSessionId) || sessions[0],
+    [sessions, selectedSessionId]
+  );
 
-    const canSend = useMemo(() => message.trim().length > 0 && !loading, [message, loading]);
+  const lastMessage = currentSession.messages[currentSession.messages.length - 1];
 
-    const handleSend = async (customMessage) => {
-        const text = (customMessage ?? message).trim();
-        if (!text || loading) return;
+  useEffect(() => {
+    if (lastMessage?.role === 'ai' && messagesContainerRef.current) {
+      const container = messagesContainerRef.current;
+      requestAnimationFrame(() => {
+        container.scrollTop = container.scrollHeight;
+      });
+    }
+  }, [currentSession.messages.length, lastMessage?.role]);
 
-        const updatedHistory = [...chatHistory, { role: 'user', text }];
-        setChatHistory(updatedHistory);
-        setMessage('');
-        setLoading(true);
+  const canSend = useMemo(() => message.trim().length > 0 && !loading, [message, loading]);
 
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-            
-            const response = await axios.post(`${API_URL}/chat`, {
-                message: text,
-                platform: 'web',
-            }, {
-                signal: controller.signal
-            });
+  const addSession = () => {
+    const newSession = createSession();
+    setSessions((prev) => [newSession, ...prev]);
+    setSelectedSessionId(newSession.id);
+    setMessage('');
+  };
 
-            clearTimeout(timeoutId);
-            const reply = response?.data?.data?.reply || 'Mình chưa nhận được phản hồi phù hợp.';
-            setChatHistory([...updatedHistory, { role: 'ai', text: reply }]);
-        } catch (error) {
-            console.error('Chat error:', error);
-            let errorMsg = 'Không thể kết nối chatbot lúc này. Hãy thử kiểm tra lại server.';
-            
-            if (error.code === 'ECONNABORTED') {
-                errorMsg = 'Chatbot trả lời chậm. Vui lòng thử lại.';
-            }
-            
-            setChatHistory([
-                ...updatedHistory,
-                {
-                    role: 'ai',
-                    text: errorMsg,
-                },
-            ]);
-        } finally {
-            setLoading(false);
+  const updateSession = (sessionId, nextSession) => {
+    setSessions((prev) => prev.map((session) => (session.id === sessionId ? nextSession : session)));
+  };
+
+  const handleSend = async (customMessage) => {
+    const text = (customMessage ?? message).trim();
+    if (!text || loading) return;
+
+    const sessionId = currentSession.id;
+    const newTitle =
+      currentSession.title === 'Cuộc trò chuyện mới'
+        ? formatSessionTitle(text)
+        : currentSession.title;
+
+    const userMessage = { role: 'user', text };
+    const nextMessages = [...currentSession.messages, userMessage];
+
+    updateSession(sessionId, {
+      ...currentSession,
+      title: newTitle,
+      messages: nextMessages,
+    });
+
+    setMessage('');
+    setLoading(true);
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+      const response = await axios.post(
+        `${API_URL}/chat`,
+        { message: text, platform: 'web' },
+        {
+          headers: {
+            'X-Session-ID': sessionId,
+          },
+          signal: controller.signal,
         }
-    };
+      );
 
-    return (
-        <>
-            {/* Nút bong bóng Chat nổi */}
-            <button 
-                onClick={() => setIsOpen(!isOpen)}
-                className="btn btn-primary rounded-circle shadow-lg d-flex align-items-center justify-content-center" 
-                style={{
-                    position: 'fixed', bottom: '30px', right: '30px', 
-                    width: '60px', height: '60px', zIndex: 1050, transition: 'all 0.3s'
-                }}
-            >
-                <i className={`bi ${isOpen ? 'bi-x-lg' : 'bi-robot'} fs-3 text-white`}></i>
-            </button>
+      clearTimeout(timeoutId);
+      const reply = response?.data?.data?.reply || 'Mình chưa nhận được phản hồi phù hợp.';
+      const aiMessage = { role: 'ai', text: reply };
+      updateSession(sessionId, {
+        ...currentSession,
+        title: newTitle,
+        messages: [...nextMessages, aiMessage],
+      });
+    } catch (error) {
+      console.error('Chat error:', error);
+      let errorMsg = 'Không thể kết nối chatbot lúc này. Hãy thử kiểm tra lại server.';
+      if (error.code === 'ECONNABORTED') {
+        errorMsg = 'Chatbot trả lời chậm. Vui lòng thử lại.';
+      }
+      const aiMessage = { role: 'ai', text: errorMsg };
+      updateSession(sessionId, {
+        ...currentSession,
+        title: newTitle,
+        messages: [...nextMessages, aiMessage],
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
-            {/* Khung cửa sổ Chat */}
-            {isOpen && (
-                <div className="card border-0 shadow-lg" style={{
-                    position: 'fixed', bottom: '100px', right: '30px', 
-                    width: '380px', zIndex: 1050, borderRadius: '15px', overflow: 'hidden'
-                }}>
-                    {/* Header */}
-                    <div className="card-header bg-primary text-white d-flex justify-content-between align-items-center p-3 border-0">
-                        <div className="d-flex align-items-center">
-                            <i className="bi bi-robot fs-4 me-2"></i>
-                            <div>
-                                <h6 className="mb-0 text-white fw-bold">Hỏi đáp tuyển sinh AI</h6>
-                                <small className="text-white-50"><i className="bi bi-circle-fill text-success" style={{fontSize:'8px'}}></i> Online</small>
-                            </div>
-                        </div>
-                        <button onClick={() => setIsOpen(false)} className="btn-close btn-close-white"></button>
-                    </div>
+  return (
+    <main className="container-fluid bg-light py-4" style={{ minHeight: '85vh' }}>
+      <div className="row gx-0 justify-content-center" style={{ minHeight: '85vh' }}>
+        <div className="col-md-3 bg-white border-end" style={{ minHeight: '85vh' }}>
+          <div className="p-4 d-flex flex-column h-100">
+            <div className="d-flex justify-content-between align-items-center mb-4">
+              <div>
+                <h5 className="mb-1 fw-bold">Phiên chat</h5>
+                <p className="mb-0 text-muted small">Chọn hoặc tạo phiên mới để bắt đầu.</p>
+              </div>
+              <button className="btn btn-outline-primary btn-sm" onClick={addSession}>
+                Cuộc trò chuyện mới
+              </button>
+            </div>
 
-                    {/* Messages Body */}
-                    <div className="card-body bg-light" style={{ height: '350px', overflowY: 'auto' }}>
-                        {chatHistory.map((item, index) => (
-                            <div key={`${item.role}-${index}`} className={`d-flex mb-3 ${item.role === 'user' ? 'justify-content-end' : 'justify-content-start'}`}>
-                                <div className={`p-3 rounded-3 shadow-sm ${item.role === 'user' ? 'bg-primary text-white' : 'bg-white border'}`} 
-                                     style={{ maxWidth: '85%', borderBottomRightRadius: item.role === 'user' ? '0' : '0.5rem', borderBottomLeftRadius: item.role === 'ai' ? '0' : '0.5rem' }}>
-                                    {item.text}
-                                </div>
-                            </div>
-                        ))}
-                        {loading && (
-                            <div className="d-flex justify-content-start mb-3">
-                                <div className="bg-white p-3 rounded-3 shadow-sm border" style={{ borderBottomLeftRadius: '0' }}>
-                                    <div className="spinner-grow spinner-grow-sm text-primary me-1" role="status"></div>
-                                    <div className="spinner-grow spinner-grow-sm text-primary me-1" role="status" style={{animationDelay: '0.2s'}}></div>
-                                    <div className="spinner-grow spinner-grow-sm text-primary" role="status" style={{animationDelay: '0.4s'}}></div>
-                                </div>
-                            </div>
-                        )}
-                        <div ref={messagesEndRef} /> {/* Dùng để cuộn xuống cuối */}
-                    </div>
+            <div className="list-group overflow-auto flex-grow-1" style={{ maxHeight: 'calc(85vh - 180px)' }}>
+              {sessions.map((session) => (
+                <button
+                  key={session.id}
+                  type="button"
+                  className={`list-group-item list-group-item-action rounded-4 mb-2 text-start ${session.id === currentSession.id ? 'active' : ''}`}
+                  onClick={() => setSelectedSessionId(session.id)}
+                >
+                  <div className="fw-semibold text-truncate" style={{ maxWidth: '100%' }}>
+                    {session.title}
+                  </div>
+                  <small className="text-muted d-block text-truncate" style={{ maxWidth: '100%' }}>
+                    {session.messages.length > 1 ? `${session.messages.length - 1} câu hỏi` : 'Chưa có câu hỏi'}
+                  </small>
+                </button>
+              ))}
+            </div>
 
-                    {/* Quick Actions (Câu hỏi gợi ý) */}
-                    <div className="bg-white px-2 py-2 border-top d-flex flex-wrap gap-1">
-                        {quickQuestions.map((question) => (
-                            <span 
-                                key={question} 
-                                onClick={() => !loading && handleSend(question)}
-                                className={`badge bg-light text-dark border p-2 ${loading ? 'opacity-50' : 'cursor-pointer'}`}
-                                style={{cursor: loading ? 'not-allowed' : 'pointer'}}
-                            >
-                                {question}
-                            </span>
-                        ))}
-                    </div>
+            <div className="mt-3 text-muted small">
+              <div className="fw-semibold mb-1">Header X-Session-ID</div>
+              <div className="text-break">{currentSession.id}</div>
+            </div>
+          </div>
+        </div>
 
-                    {/* Input Area */}
-                    <div className="card-footer bg-white border-0 p-3 pt-2">
-                        <div className="input-group">
-                            <input
-                                type="text"
-                                className="form-control bg-light rounded-start-pill ps-3"
-                                value={message}
-                                onChange={(e) => setMessage(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                                placeholder="Nhập câu hỏi..."
-                                disabled={loading}
-                            />
-                            <button 
-                                className="btn btn-primary rounded-end-pill px-3" 
-                                type="button" 
-                                onClick={() => handleSend()} 
-                                disabled={!canSend}
-                            >
-                                <i className="bi bi-send-fill"></i>
-                            </button>
-                        </div>
-                    </div>
+        <div className="col-md-9 d-flex flex-column" style={{ minHeight: '85vh' }}>
+          <div className="card border-0 shadow-sm rounded-4 flex-grow-1 d-flex flex-column">
+            <div className="card-header bg-white border-0 px-4 py-3">
+              <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div>
+                  <h5 className="mb-1 fw-bold">Hỏi đáp tuyển sinh AI</h5>
+                  <p className="mb-0 text-muted small">Phiên: {currentSession.title}</p>
                 </div>
-            )}
-        </>
-    );
+                <div className="text-end">
+                  <span className="badge bg-success">Online</span>
+                  <div className="text-muted small mt-1">Session ID được gửi vào Header</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="card-body px-4 py-3 d-flex flex-column" style={{ minHeight: 0 }}>
+              <div ref={messagesContainerRef} className="overflow-auto mb-3" style={{ maxHeight: 'calc(85vh - 260px)' }}>
+                {currentSession.messages.map((item, index) => (
+                  <div
+                    key={`${item.role}-${index}`}
+                    className={`d-flex mb-3 ${item.role === 'user' ? 'justify-content-end' : 'justify-content-start'}`}
+                  >
+                    <div
+                      className={`p-3 rounded-4 shadow-sm ${item.role === 'user' ? 'bg-primary text-white' : 'bg-white border'}`}
+                      style={{ maxWidth: '85%' }}
+                    >
+                      {item.text}
+                    </div>
+                  </div>
+                ))}
+
+                {loading && (
+                  <div className="d-flex justify-content-start mb-3">
+                    <div className="bg-white p-3 rounded-4 shadow-sm border">
+                      <div className="spinner-grow spinner-grow-sm text-primary me-1" role="status"></div>
+                      <div className="spinner-grow spinner-grow-sm text-primary me-1" role="status" style={{ animationDelay: '0.2s' }}></div>
+                      <div className="spinner-grow spinner-grow-sm text-primary" role="status" style={{ animationDelay: '0.4s' }}></div>
+                    </div>
+                  </div>
+                )}
+
+                <div ref={messagesEndRef} />
+              </div>
+
+              <div className="bg-white p-3 rounded-4 border">
+                <div className="mb-3">
+                  <div className="d-flex flex-wrap gap-2">
+                    {quickQuestions.map((question) => (
+                      <button
+                        key={question}
+                        type="button"
+                        className="btn btn-outline-secondary btn-sm rounded-pill"
+                        disabled={loading}
+                        onClick={() => handleSend(question)}
+                      >
+                        {question}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="input-group">
+                  <input
+                    type="text"
+                    className="form-control bg-light rounded-start-pill ps-3"
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                    placeholder="Nhập câu hỏi..."
+                    disabled={loading}
+                  />
+                  <button
+                    className="btn btn-primary rounded-end-pill px-4"
+                    type="button"
+                    onClick={() => handleSend()}
+                    disabled={!canSend}
+                  >
+                    <i className="bi bi-send-fill me-2"></i>Gửi
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  );
 };
 
 export default ChatAi;

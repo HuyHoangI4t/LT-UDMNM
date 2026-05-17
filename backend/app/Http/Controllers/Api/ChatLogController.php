@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\ChatLog;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use OpenApi\Attributes as OA; // THÊM KHAI BÁO ATTRIBUTES
 
 class ChatLogController extends Controller
@@ -143,5 +145,49 @@ class ChatLogController extends Controller
             'status' => 'success', 
             'message' => 'Đã xóa thành công'
         ]);
+    }
+
+    // Bulk import chat logs for training/initial data
+    public function import(Request $request)
+    {
+        $data = $request->input('data');
+
+        if (!is_array($data)) {
+            return response()->json(['status' => 'error', 'message' => 'Invalid payload, expect data array under "data" key'], 400);
+        }
+
+        $created = 0;
+        DB::beginTransaction();
+        try {
+            foreach ($data as $item) {
+                $session_id = $item['session_id'] ?? Str::uuid()->toString();
+                $platform = $item['platform'] ?? 'web';
+                $user_query = $item['user_query'] ?? ($item['question'] ?? null);
+                $bot_response = $item['bot_response'] ?? ($item['answer'] ?? null);
+                $created_at = $item['created_at'] ?? now();
+
+                if (!$user_query || !$bot_response) {
+                    continue; // skip incomplete rows
+                }
+
+                ChatLog::create([
+                    'session_id' => $session_id,
+                    'platform' => $platform,
+                    'user_query' => $user_query,
+                    'bot_response' => $bot_response,
+                    'created_at' => $created_at,
+                    'updated_at' => $created_at,
+                ]);
+
+                $created++;
+            }
+
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+
+        return response()->json(['status' => 'success', 'created' => $created]);
     }
 }

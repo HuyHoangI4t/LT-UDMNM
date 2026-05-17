@@ -1,23 +1,24 @@
 import React from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './scss/style.scss';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import ChatAi from './components/ChatAi';
+import ChatLogs from './components/ChatLogs';
 import Header from './components/Header';
-import Body from './components/Body';
 import Footer from './components/Footer';
-import AdmissionPage from './page/AdmissionPage';
 
 function App() {
   return (
     <div className="App">
       <Header />
-      <Body />
-      <main>
-        <AdmissionPage />
-      </main>
-      <ChatAi />
+      <Router>
+        <Routes>
+          <Route path="/" element={<ChatAi />} />
+          <Route path="/chat-bot" element={<ChatAi />} />
+          <Route path="/chat-logs" element={<ChatLogs />} />
+        </Routes>
+      </Router>
       <Footer />
-
     </div>
   );
 }

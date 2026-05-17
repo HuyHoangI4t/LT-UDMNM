@@ -29,6 +29,7 @@ Route::post('/chat', [ChatbotController::class, 'chat']);
 Route::get('/chat-logs', [ChatLogController::class, 'index']);
 Route::get('/chat-logs/{id}', [ChatLogController::class, 'show']);
 Route::delete('/chat-logs/{id}', [ChatLogController::class, 'destroy']);
+Route::post('/chat-logs/import', [ChatLogController::class, 'import']);
 Route::post('/chat', [ChatbotController::class, 'chat']);
 Route::get('/admissions', [AdmissionController::class, 'index']);
 Route::post('/admissions', [AdmissionController::class, 'store']);
