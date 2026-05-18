@@ -1,0 +1,304 @@
+.chat-page {
+    min-height: calc(100vh - 120px);
+
+    /* tăng từ 24px lên */
+    padding: 40px 70px;
+
+    background:
+        linear-gradient(
+            180deg,
+            #dff6ff 0%,
+            #eef7ff 40%,
+            #f8fbff 100%
+        );
+}
+
+/* WRAPPER */
+
+.chat-shell {
+    width: 100%;
+
+    /* nhỏ hơn */
+    max-width: 1280px;
+
+    /* thấp hơn */
+    height: calc(100vh - 220px);
+
+    /* đẩy vào */
+    margin: 0 auto;
+
+    background: rgba(255,255,255,0.95);
+
+    border-radius: 28px;
+
+    border: 1px solid #dbeafe;
+
+    box-shadow:
+        0 10px 30px rgba(37,99,235,0.08),
+        0 4px 12px rgba(0,0,0,0.06);
+
+    overflow: hidden;
+
+    display: flex;
+    flex-direction: column;
+}
+
+/* MESSAGE */
+
+.chat-messages {
+    flex: 1;
+
+    overflow-y: auto;
+
+    padding: 30px;
+}
+
+.message-row {
+    display: flex;
+
+    margin-bottom: 18px;
+}
+
+.message-row.ai {
+    justify-content: flex-start;
+}
+
+.message-row.user {
+    justify-content: flex-end;
+}
+
+.message-bubble {
+    max-width: 78%;
+
+    padding: 16px 20px;
+
+    border-radius: 18px;
+
+    background: white;
+
+    border: 1px solid #dbeafe;
+
+    color: #1e293b;
+
+    font-size: 16px;
+
+    line-height: 1.7;
+
+    box-shadow:
+        0 4px 10px rgba(37,99,235,0.05);
+}
+
+/* USER */
+
+.message-row.user .message-bubble {
+    background:
+        linear-gradient(
+            135deg,
+            #2563eb,
+            #1d4ed8
+        );
+
+    color: white;
+
+    border: none;
+}
+
+/* RELATED */
+
+.related-box {
+    margin-top: 26px;
+
+    padding-top: 18px;
+
+    border-top: 1px solid #dbeafe;
+}
+
+.related-title {
+    color: #1d4ed8;
+
+    font-size: 18px;
+
+    font-weight: 700;
+
+    margin-bottom: 14px;
+}
+
+.related-question {
+    width: 100%;
+
+    display: flex;
+    align-items: center;
+
+    gap: 14px;
+
+    padding: 18px 20px;
+
+    margin-bottom: 14px;
+
+    border-radius: 16px;
+
+    border: 1px solid #bfdbfe;
+
+    background:
+        linear-gradient(
+            180deg,
+            #f8fbff,
+            #edf4ff
+        );
+
+    color: #334155;
+
+    font-size: 17px;
+
+    font-weight: 600;
+
+    text-align: left;
+
+    cursor: pointer;
+
+    transition: 0.2s;
+
+    box-shadow:
+        0 4px 12px rgba(37,99,235,0.06);
+}
+
+.related-question:hover {
+    background: #e0edff;
+
+    transform: translateY(-1px);
+}
+
+.related-question i {
+    margin-left: auto;
+
+    color: #2563eb;
+
+    font-size: 20px;
+}
+
+/* INPUT */
+
+.chat-input-area {
+    display: flex;
+    align-items: center;
+
+    gap: 12px;
+
+    padding: 18px 24px;
+
+    border-top: 1px solid #dbeafe;
+
+    background:
+        linear-gradient(
+            180deg,
+            #ffffff,
+            #f8fbff
+        );
+}
+
+.input-tool-btn {
+    width: 52px;
+    height: 52px;
+
+    border: none;
+
+    border-radius: 16px;
+
+    background: #eff6ff;
+
+    color: #2563eb;
+
+    font-size: 20px;
+
+    cursor: pointer;
+
+    transition: 0.2s;
+
+    box-shadow:
+        0 4px 10px rgba(37,99,235,0.08);
+}
+
+.input-tool-btn:hover {
+    background: #dbeafe;
+}
+
+.chat-input {
+    flex: 1;
+
+    height: 58px;
+
+    border-radius: 18px;
+
+    border: 1px solid #bfdbfe;
+
+    background: white;
+
+    padding: 0 22px;
+
+    outline: none;
+
+    font-size: 17px;
+
+    color: #0f172a;
+
+    box-shadow:
+        inset 0 2px 4px rgba(0,0,0,0.03);
+}
+
+.chat-input:focus {
+    border-color: #2563eb;
+
+    box-shadow:
+        0 0 0 4px rgba(37,99,235,0.1);
+}
+
+.chat-input::placeholder {
+    color: #94a3b8;
+}
+
+.send-btn {
+    width: 64px;
+    height: 58px;
+
+    border: none;
+
+    border-radius: 18px;
+
+    background:
+        linear-gradient(
+            135deg,
+            #2563eb,
+            #1d4ed8
+        );
+
+    color: white;
+
+    font-size: 24px;
+
+    cursor: pointer;
+
+    transition: 0.2s;
+
+    box-shadow:
+        0 8px 18px rgba(37,99,235,0.28);
+}
+
+.send-btn:hover {
+    transform: translateY(-1px);
+}
+
+.chat-note {
+    padding: 0 28px 18px;
+
+    font-size: 14px;
+
+    color: #64748b;
+
+    background: #f8fbff;
+}
+
+.chat-note span {
+    color: #2563eb;
+
+    font-weight: 700;
+}

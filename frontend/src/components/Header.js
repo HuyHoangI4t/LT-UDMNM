@@ -3,51 +3,72 @@ import './Header.css';
 
 function Header() {
   return (
-    <>
-     
+    <header className="chatbot-header">
 
-      {/* Navbar Start */}
-      <nav className="navbar navbar-expand-lg bg-white navbar-light shadow sticky-top p-0">
-        <a href="index.html" className="navbar-brand d-flex align-items-center px-4 px-lg-5">
-          <h2 className="m-0 text-primary d-flex align-items-center">
-            <img src="/images/logo.png" alt="Tuyển sinh TNU" style={{ width: '42px', height: '42px', objectFit: 'cover', marginRight: '12px', borderRadius: '50%' }} />
-            
-          </h2>
-        </a>
-        <button type="button" className="navbar-toggler me-4" data-bs-toggle="collapse" data-bs-target="#navbarCollapse">
-          <span className="navbar-toggler-icon"></span>
-        </button>
-        <div className="collapse navbar-collapse" id="navbarCollapse">
-          <div className="navbar-nav ms-auto p-4 p-lg-0">
-            <a href="/" className="nav-item nav-link active">Trang chủ</a>
-            <a href="/chat-logs" className="nav-item nav-link">Chat Logs</a>
-            <a href="#majors" className="nav-item nav-link">Giới thiệu ngành đào tạo</a>
-            <div className="nav-item dropdown">
-              <a
-                href="#!"
-                className="nav-link dropdown-toggle"
-                id="admissionsDropdown"
-                role="button"
-                data-bs-toggle="dropdown"
-                aria-expanded="false"
-              >
-                Tuyển sinh
-              </a>
-              <div className="dropdown-menu border-0 rounded-0 rounded-bottom m-0 shadow-sm" aria-labelledby="admissionsDropdown">
-                <a href="/tuyen-sinh-dh" className="dropdown-item">Tuyển sinh Đại học</a>
-                <a href="/tuyen-sinh-sau-dh" className="dropdown-item">Tuyển sinh Sau Đại học</a>
-                <a href="/tuyen-sinh-vhvl" className="dropdown-item">Tuyển sinh VHVL</a>
-              </div>
-            </div>
-            <a href="/lop-ngan-han" className="nav-item nav-link">Các lớp ngắn hạn</a>
-            <a href="/lien-ket" className="nav-item nav-link">Liên kết đào tạo</a>
-            <a href="https://vieclam.ttn.edu.vn/" className="nav-item nav-link">Cơ hội việc làm</a>
-          </div>
-          
+      {/* LEFT */}
+      <div className="header-left">
+
+        {/* NAV */}
+        <div className="nav-box">
+
+          {/* BACK */}
+          <button
+            className="icon-btn"
+            onClick={() => window.history.back()}
+          >
+            <i className="fa fa-arrow-left"></i>
+          </button>
+
+          {/* HOME */}
+          <a
+            href="https://tuyensinh.ttn.edu.vn/"
+            className="icon-btn"
+          >
+            <i className="fa fa-home"></i>
+          </a>
         </div>
-      </nav>
-      {/* Navbar End */}
-    </>
+
+        {/* LOGO */}
+        <img
+          src="/images/logo.png"
+          alt="logo"
+          className="header-logo"
+        />
+
+        {/* TITLE */}
+        <div>
+          <h3 className="header-title">
+            TNU ChatBot
+          </h3>
+
+          <span className="header-subtitle">
+            Hỗ trợ tư vấn 24/7
+          </span>
+        </div>
+      </div>
+
+      {/* RIGHT */}
+      <div className="header-right">
+
+        {/* LANGUAGE */}
+        <div className="language-box">
+
+          <button className="lang-btn active">
+            VI
+          </button>
+
+          <button className="lang-btn">
+            EN
+          </button>
+        </div>
+
+        {/* SOURCE */}
+        <button className="source-btn">
+          <i className="fa fa-book"></i>
+          <span>Nguồn</span>
+        </button>
+      </div>
+    </header>
   );
 }
 
