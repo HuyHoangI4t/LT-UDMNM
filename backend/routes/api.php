@@ -3,7 +3,6 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\ChatbotController;
 use App\Http\Controllers\Api\ChatLogController;
-use App\Http\Controllers\api\AdmissionController;
 
 
 
@@ -33,8 +32,3 @@ Route::get('/chat-logs', [ChatLogController::class, 'index']);
 Route::get('/chat-logs/{id}', [ChatLogController::class, 'show']);
 Route::delete('/chat-logs/{id}', [ChatLogController::class, 'destroy']);
 Route::post('/chat-logs/import', [ChatLogController::class, 'import']);
-Route::get('/admissions', [AdmissionController::class, 'index']);
-Route::post('/admissions', [AdmissionController::class, 'store']);
-Route::get('/admissions/{id}', [AdmissionController::class, 'show']);
-Route::put('/admissions/{id}', [AdmissionController::class, 'update']);
-Route::delete('/admissions/{id}', [AdmissionController::class, 'destroy']);

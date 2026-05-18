@@ -10,7 +10,9 @@
     "react-markdown": "^10.1.0",
     "react-router-dom": "^6.20.0",
     "react-scripts": "5.0.1",
-    "sass": "^1.99.0"
+    "remark-gfm": "^4.0.1",
+    "sass": "^1.99.0",
+    "uuid": "^14.0.0"
   },
   "scripts": {
     "start": "react-scripts start",

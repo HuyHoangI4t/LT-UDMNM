@@ -8,7 +8,7 @@ use Exception;
 
 class AiChatService
 {
-    public function getAnswer($userMessage)
+    public function getAnswer(string $userMessage): string
     {
         $apiKey = env('GEMINI_API_KEY');
 
@@ -18,13 +18,15 @@ class AiChatService
 
         $systemPrompt = config('ai-rules.system_prompt');
 
-        // 1. Cho Gemini hiểu câu hỏi trước
         $normalizedQuestion = $this->normalizeUserQuestion($userMessage);
 
-        // 2. Search DB bằng cả câu gốc + câu đã chuẩn hóa
-        $context = $this->buildContextFromDatabase(
-            $normalizedQuestion . ' ' . $userMessage
-        );
+        try {
+            $context = $this->buildContextFromDatabase(
+                $normalizedQuestion . ' ' . $userMessage
+            );
+        } catch (Exception $e) {
+            $context = '';
+        }
 
         $finalPrompt = "
 CONTEXT:
@@ -34,7 +36,7 @@ USER QUESTION:
 {$userMessage}
 ";
 
-        $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key={$apiKey}";
+        $url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={$apiKey}";
 
         try {
             $response = Http::timeout(60)
@@ -67,6 +69,7 @@ USER QUESTION:
             $msg = $error['error']['message'] ?? 'Lỗi không xác định';
 
             throw new Exception("Lỗi từ Gemini: " . $msg);
+
         } catch (Exception $e) {
             throw new Exception("Lỗi kết nối AI: " . $e->getMessage());
         }
@@ -100,6 +103,7 @@ sp toán mã ngành -> Sư phạm Toán học mã ngành
 văn bằng 2 kế toán -> Kế toán văn bằng 2
 điều dưỡng khối nào -> Điều dưỡng tổ hợp xét tuyển
 ngôn ngữ anh ra làm gì -> Ngôn ngữ Anh việc làm sau tốt nghiệp
+26 điểm khối a00 thì được ngành nào -> ngành có tổ hợp A00 điểm chuẩn dưới 26
 
 Câu hỏi: {$userMessage}
 ";
@@ -124,11 +128,12 @@ Câu hỏi: {$userMessage}
 
                 return trim(
                     $data['candidates'][0]['content']['parts'][0]['text']
-                        ?? $userMessage
+                    ?? $userMessage
                 );
             }
 
             return $userMessage;
+
         } catch (Exception $e) {
             return $userMessage;
         }
@@ -138,24 +143,17 @@ Câu hỏi: {$userMessage}
     {
         $keywords = $this->extractKeywords($searchText);
 
-        if (empty($keywords)) {
-            return 'Không tìm thấy dữ liệu phù hợp trong knowledge_bases.';
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | 1. Ưu tiên tìm trong TITLE
-        |--------------------------------------------------------------------------
-        */
-        $titleQuery = KnowledgeBase::query();
-
-        $titleQuery->where(function ($q) use ($keywords) {
-            foreach ($keywords as $keyword) {
-                $q->orWhere('title', 'LIKE', "%{$keyword}%");
+        try {
+            if (empty($keywords)) {
+                return 'Không tìm thấy dữ liệu phù hợp trong knowledge_bases.';
             }
-        });
 
-        $titleResults = $titleQuery
+        $titleResults = KnowledgeBase::query()
+            ->where(function ($q) use ($keywords) {
+                foreach ($keywords as $keyword) {
+                    $q->orWhere('title', 'LIKE', "%{$keyword}%");
+                }
+            })
             ->orderByRaw("
                 CASE
                     WHEN category = 'nganh_dao_tao' THEN 0
@@ -168,51 +166,38 @@ Câu hỏi: {$userMessage}
             ->limit(5)
             ->get();
 
-        /*
-        |--------------------------------------------------------------------------
-        | 2. Nếu TITLE không có thì tìm trong CONTENT
-        |--------------------------------------------------------------------------
-        */
-        if ($titleResults->isNotEmpty()) {
-            $results = $titleResults;
-        } else {
-            $contentQuery = KnowledgeBase::query();
+            if ($titleResults->isNotEmpty()) {
+                $results = $titleResults;
+            } else {
+                $results = KnowledgeBase::query()
+                    ->where(function ($q) use ($keywords) {
+                        foreach ($keywords as $keyword) {
+                            $q->orWhere('content', 'LIKE', "%{$keyword}%");
+                        }
+                    })
+                    ->orderByRaw("
+                        CASE
+                            WHEN category = 'nganh_dao_tao' THEN 0
+                            WHEN category = 'dai_hoc' THEN 1
+                            WHEN category = 'trang_chu' THEN 2
+                            ELSE 3
+                        END
+                    ")
+                    ->latest()
+                    ->limit(5)
+                    ->get();
+            }
 
-            $contentQuery->where(function ($q) use ($keywords) {
-                foreach ($keywords as $keyword) {
-                    $q->orWhere('content', 'LIKE', "%{$keyword}%");
-                }
-            });
+            if ($results->isEmpty()) {
+                return 'Không tìm thấy dữ liệu phù hợp trong knowledge_bases.';
+            }
 
-            $results = $contentQuery
-                ->orderByRaw("
-                    CASE
-                        WHEN category = 'nganh_dao_tao' THEN 0
-                        WHEN category = 'dai_hoc' THEN 1
-                        WHEN category = 'trang_chu' THEN 2
-                        ELSE 3
-                    END
-                ")
-                ->latest()
-                ->limit(5)
-                ->get();
-        }
+            $context = '';
 
-        if ($results->isEmpty()) {
-            return 'Không tìm thấy dữ liệu phù hợp trong knowledge_bases.';
-        }
+            foreach ($results as $item) {
+                $content = $this->cleanContent($item->content ?? '');
 
-        /*
-        |--------------------------------------------------------------------------
-        | 3. Build context sạch cho Gemini
-        |--------------------------------------------------------------------------
-        */
-        $context = '';
-
-        foreach ($results as $item) {
-            $content = $this->cleanContent($item->content ?? '');
-
-            $context .= "
+                $context .= "
 TITLE: {$item->title}
 CATEGORY: {$item->category}
 SOURCE: [{$item->title}]({$item->url})
@@ -221,9 +206,13 @@ CONTENT:
 
 ----------------------------------------
 ";
+            }
+
+            return trim($context);
+        } catch (Exception $e) {
+            return 'Không tìm thấy dữ liệu phù hợp trong knowledge_bases.';
         }
 
-        return trim($context);
     }
 
     private function extractKeywords(string $text): array
@@ -231,87 +220,38 @@ CONTENT:
         $text = mb_strtolower($text, 'UTF-8');
 
         $stopwords = [
-            'là',
-            'và',
-            'của',
-            'cho',
-            'về',
-            'ở',
-            'tôi',
-            'em',
-            'anh',
-            'chị',
-            'bạn',
-            'bao',
-            'nhiêu',
-            'bn',
-            'mấy',
-            'ngành',
-            'điểm',
-            'chuẩn',
-            'xét',
-            'tuyển',
-            'trường',
-            'đại',
-            'học',
-            'tây',
-            'nguyên',
-            'không',
-            'ko',
-            'ạ',
-            'ơi',
-            'lấy',
-            'nào',
-            'gì',
-            'có'
+            'là', 'và', 'của', 'cho', 'về', 'ở',
+            'tôi', 'em', 'anh', 'chị', 'bạn',
+            'bao', 'nhiêu', 'bn', 'mấy',
+            'ngành', 'điểm', 'chuẩn', 'xét', 'tuyển',
+            'trường', 'đại', 'học', 'tây', 'nguyên',
+            'không', 'ko', 'ạ', 'ơi',
+            'lấy', 'nào', 'gì', 'có', 'thì', 'được', 'đc'
         ];
 
-        $words = preg_split('/\s+/u', $text);
+        $words = preg_split('/\s+/u', $text, -1, PREG_SPLIT_NO_EMPTY);
 
         $keywords = [];
 
         foreach ($words as $word) {
+            $word = trim($word, " \t\n\r\0\x0B.,!?;:()[]{}\"'");
 
-            $word = trim($word);
+            if ($word === '') {
+                continue;
+            }
 
             if (in_array($word, $stopwords)) {
                 continue;
             }
 
-            if (mb_strlen($word) < 2) {
+            if (mb_strlen($word, 'UTF-8') < 2) {
                 continue;
             }
 
             $keywords[] = $word;
         }
 
-        return array_unique($keywords);
-    }
-
-    private function findMajorKeywordFromDb(string $text): ?string
-    {
-        $majors = KnowledgeBase::query()
-            ->where('category', 'nganh_dao_tao')
-            ->get(['title']);
-
-        foreach ($majors as $major) {
-            $title = mb_strtolower($major->title ?? '', 'UTF-8');
-
-            if ($title === '') {
-                continue;
-            }
-
-            $cleanTitle = preg_replace('/^ngành\s+/u', '', $title);
-
-            if (
-                str_contains($text, $title) ||
-                str_contains($text, $cleanTitle)
-            ) {
-                return $cleanTitle;
-            }
-        }
-
-        return null;
+        return array_values(array_unique($keywords));
     }
 
     private function cleanContent(string $content): string

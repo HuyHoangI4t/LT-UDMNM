@@ -2,95 +2,75 @@
 
 namespace App\Console\Commands;
 
-use App\Models\KnowledgeBase;
 use Illuminate\Console\Command;
+use App\Models\KnowledgeBase;
 
 class ImportKnowledgeBase extends Command
 {
-    protected $signature = 'import:knowledge {path}';
+    protected $signature = 'knowledge:import {file}';
 
-    protected $description = 'Import JSON files into knowledge_bases table';
+    protected $description = 'Import JSON vào knowledge_bases';
 
-    public function handle(): int
+    public function handle()
     {
-        $path = $this->argument('path');
+        $file = $this->argument('file');
 
-        try {
-
-            // Nếu là folder
-            if (is_dir($path)) {
-
-                $files = glob($path . '/*.json');
-
-                if (!$files) {
-                    $this->error('Không tìm thấy file JSON');
-                    return self::FAILURE;
-                }
-
-                foreach ($files as $file) {
-                    $this->importFile($file);
-                }
-
-            } else {
-
-                // Nếu là file
-                $this->importFile($path);
-            }
-
-            $this->info('IMPORT HOÀN TẤT');
-
-            return self::SUCCESS;
-
-        } catch (\Throwable $e) {
-
-            $this->error($e->getMessage());
-
-            return self::FAILURE;
-        }
-    }
-
-    private function importFile(string $filePath): void
-    {
-        $this->info("Đang import: {$filePath}");
-
-        if (!file_exists($filePath)) {
-            $this->error("File không tồn tại");
+        if (!file_exists($file)) {
+            $this->error("Không tìm thấy file: {$file}");
             return;
         }
 
-        $json = file_get_contents($filePath);
+        $json = file_get_contents($file);
 
-        $data = json_decode($json, true);
+        $items = json_decode($json, true);
 
-        if (!is_array($data)) {
-            $this->error("JSON lỗi: {$filePath}");
+        if (!$items || !is_array($items)) {
+            $this->error("JSON không hợp lệ");
             return;
         }
 
-        $imported = 0;
+        $count = 0;
+        $updated = 0;
 
-        foreach ($data as $item) {
+        foreach ($items as $item) {
 
-            if (!isset($item['url'])) {
+            $url =
+                $item['url']
+                ?? $item['link']
+                ?? null;
+
+            if (!$url) {
                 continue;
             }
 
+            $existing = KnowledgeBase::where('url', $url)->first();
+
             KnowledgeBase::updateOrCreate(
+                ['url' => $url],
                 [
-                    'url' => $item['url']
-                ],
-                [
-                    'category' => $item['category'] ?? null,
-                    'title' => $item['title'] ?? null,
-                    'content' => $item['content'] ?? null,
+                    'title' => $item['title'] ?? 'Không có tiêu đề',
+
+                    'content' => is_array($item['content'] ?? null)
+                        ? json_encode($item['content'], JSON_UNESCAPED_UNICODE)
+                        : ($item['content'] ?? ''),
+
+                    'category' => $item['category'] ?? 'general',
+
                     'pdf_links' => $item['pdf_links'] ?? [],
                     'image_links' => $item['image_links'] ?? [],
+
+                    'embedding' => null,
                 ]
             );
 
-            $imported++;
+            if ($existing) {
+                $updated++;
+            } else {
+                $count++;
+            }
         }
 
-        $this->info("Imported: {$imported}");
+        $this->info("Import thành công {$count} records.");
+        $this->info("Update {$updated} records.");
     }
 }

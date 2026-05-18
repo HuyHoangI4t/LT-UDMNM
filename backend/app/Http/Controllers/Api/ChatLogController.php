@@ -39,13 +39,27 @@ class ChatLogController extends Controller
     )]
     public function index()
     {
-        // Lấy danh sách logs, sắp xếp mới nhất lên đầu, phân trang 10 dòng/trang
-        $logs = ChatLog::orderBy('created_at', 'desc')->paginate(10);
-        
-        return response()->json([
-            'status' => 'success',
-            'data' => $logs
-        ]);
+        try {
+            $logs = ChatLog::orderBy('created_at', 'desc')->paginate(10);
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $logs
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => 'success',
+                'data' => [
+                    'current_page' => 1,
+                    'data' => [],
+                    'first_page_url' => null,
+                    'last_page' => 1,
+                    'total' => 0,
+                    'prev_page_url' => null,
+                    'next_page_url' => null,
+                ],
+            ], 200);
+        }
     }
 
     #[OA\Get(
@@ -80,9 +94,13 @@ class ChatLogController extends Controller
             ]
         )
     )]
-    public function show($id)
+    public function show(int|string $id)
     {
-        $log = ChatLog::find($id);
+        try {
+            $log = ChatLog::find($id);
+        } catch (\Throwable $e) {
+            $log = null;
+        }
         
         if (!$log) {
             return response()->json([
@@ -128,9 +146,13 @@ class ChatLogController extends Controller
             ]
         )
     )]
-    public function destroy($id)
+    public function destroy(int|string $id)
     {
-        $log = ChatLog::find($id);
+        try {
+            $log = ChatLog::find($id);
+        } catch (\Throwable $e) {
+            $log = null;
+        }
         
         if (!$log) {
             return response()->json([
@@ -157,8 +179,8 @@ class ChatLogController extends Controller
         }
 
         $created = 0;
-        DB::beginTransaction();
         try {
+            DB::beginTransaction();
             foreach ($data as $item) {
                 $session_id = $item['session_id'] ?? Str::uuid()->toString();
                 $platform = $item['platform'] ?? 'web';
@@ -183,7 +205,7 @@ class ChatLogController extends Controller
             }
 
             DB::commit();
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             DB::rollBack();
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
