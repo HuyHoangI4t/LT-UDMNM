@@ -25,12 +25,14 @@ Route::get('/health', function () {
 // 2. API Dành cho Thí sinh (Chatbot)
 Route::post('/chat', [ChatbotController::class, 'chat']);
 
+// 4. API Lấy danh sách câu hỏi thường gặp (FAQ) cho frontend
+Route::get('/faq-questions', [ChatbotController::class, 'faqQuestions']);
+
 // 3. API Dành cho Admin / Nhà trường (Quản lý Dashboard)
 Route::get('/chat-logs', [ChatLogController::class, 'index']);
 Route::get('/chat-logs/{id}', [ChatLogController::class, 'show']);
 Route::delete('/chat-logs/{id}', [ChatLogController::class, 'destroy']);
 Route::post('/chat-logs/import', [ChatLogController::class, 'import']);
-Route::post('/chat', [ChatbotController::class, 'chat']);
 Route::get('/admissions', [AdmissionController::class, 'index']);
 Route::post('/admissions', [AdmissionController::class, 'store']);
 Route::get('/admissions/{id}', [AdmissionController::class, 'show']);

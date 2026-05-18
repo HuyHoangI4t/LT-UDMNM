@@ -8,6 +8,8 @@ use App\Services\AiChatService;
 use App\Models\ChatLog;
 use Illuminate\Support\Str;
 use OpenApi\Attributes as OA; // <--- SỬA THÀNH ATTRIBUTES
+use App\Models\KnowledgeBase;
+use Exception;
 
 class ChatbotController extends Controller
 {
@@ -91,6 +93,38 @@ class ChatbotController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'Lỗi kết nối AI: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+
+    /**
+     * Trả về danh sách câu hỏi thường gặp (FAQ) từ bảng knowledge_bases.
+     */
+    public function faqQuestions()
+    {
+        try {
+            $items = KnowledgeBase::query()
+                ->whereIn('category', ['faq', 'faqs', 'cau_hoi'])
+                ->orderBy('id', 'desc')
+                ->limit(50)
+                ->get(['title', 'content']);
+
+            $data = $items->map(function ($it) {
+                return [
+                    'title' => $it->title,
+                    'content' => $it->content,
+                ];
+            })->values();
+
+            return response()->json([
+                'status' => 'success',
+                'data' => $data,
+            ], 200);
+        } catch (Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Lỗi khi lấy FAQ: ' . $e->getMessage(),
             ], 500);
         }
     }
