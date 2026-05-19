@@ -1,28 +1,20 @@
 .chatbot-header {
-    height: 90px;
-
-    background: #c5d0e5;
-
-    border-bottom: 4px solid rgb(15, 104, 229);
-
+    height: 72px;
+    background: rgba(255,255,255,0.82);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.4);
     display: flex;
     align-items: center;
     justify-content: space-between;
-
-    padding: 0 24px;
-
-    /* đẩy vào giữa */
-    max-width: 1400px;
-
-    /* căn giữa */
-    margin: 16px auto;
-
-    /* cách 2 bên trên mobile */
-    width: calc(100% - 40px);
-
-    border-radius: 22px;
-
-    box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+    padding: 0 18px;
+    max-width: 1080px;
+    margin: 12px auto;
+    width: calc(100% - 28px);
+    border-radius: 18px;
+    box-shadow: 0 8px 20px rgba(15,104,229,0.08);
+    position: sticky;
+    top: 12px;
+    z-index: 100;
 }
 
 /* LEFT */
@@ -37,75 +29,59 @@
 .nav-box{
     display: flex;
     align-items: center;
-
-    gap: 22px;
-
-    background: #eef0f4;
-
-    padding: 14px 22px;
-
-    border-radius: 18px;
-
-    margin-right: 22px;
-
-    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    gap: 14px;
+    background: rgba(255,255,255,0.75);
+    padding: 10px 14px;
+    border-radius: 14px;
+    margin-right: 16px;
+    border: 1px solid #dbeafe;
 }
 
 .icon-btn{
-    width: 28px;
-    height: 28px;
-
+    width: 22px;
+    height: 22px;
     display: flex;
     align-items: center;
     justify-content: center;
-
     border: none;
     background: transparent;
-
     text-decoration: none;
-
-    color: #5b6472;
-
-    font-size: 22px;
-
+    color: #64748b;
+    font-size: 18px;
     cursor: pointer;
-
     transition: 0.2s;
 }
 
 .icon-btn:hover{
     transform: scale(1.08);
-    color: #111827;
+    color: #2563eb;
 }
 
 /* LOGO */
 
 .header-logo {
-    width: 58px;
-    height: 58px;
-
+    width: 44px;
+    height: 44px;
     object-fit: cover;
-
     border-radius: 50%;
-
-    margin-right: 14px;
+    margin-right: 12px;
+    box-shadow: 0 4px 12px rgba(37,99,235,0.18);
 }
 
 /* TITLE */
 
 .header-title {
     margin: 0;
-
-    font-size: 32px;
+    font-size: 22px;
     font-weight: 700;
-
-    color: #111827;
+    color: #0f172a;
+    line-height: 1.2;
 }
 
 .header-subtitle {
-    font-size: 16px;
-
-    color: #4b5563;
+    font-size: 13px;
+    color: #64748b;
+    margin-top: 2px;
 }
 
 /* RIGHT */
@@ -113,6 +89,7 @@
 .header-right {
     display: flex;
     align-items: center;
+    gap: 10px;
 }
 
 /* LANGUAGE */
@@ -120,36 +97,30 @@
 .language-box {
     display: flex;
     align-items: center;
-
-    background: white;
-
-    border-radius: 14px;
-
-    padding: 4px;
-
-    margin-right: 14px;
+    background: rgba(255,255,255,0.82);
+    border-radius: 12px;
+    padding: 3px;
+    border: 1px solid #dbeafe;
 }
 
 .lang-btn {
     border: none;
     background: transparent;
-
-    padding: 8px 14px;
-
-    border-radius: 10px;
-
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 13px;
     font-weight: 600;
-
-    color: #374151;
-
+    color: #475569;
     cursor: pointer;
-
     transition: 0.2s;
 }
 
 .lang-btn.active {
-    background: rgb(15, 104, 229);
-
+    background: linear-gradient(
+        135deg,
+        #2563eb,
+        #1d4ed8
+    );
     color: white;
 }
 
@@ -158,26 +129,19 @@
 .source-btn {
     display: flex;
     align-items: center;
-
-    gap: 8px;
-
-    border: none;
-
-    background: #f3f4f6;
-
-    border-radius: 14px;
-
-    padding: 12px 20px;
-
+    gap: 6px;
+    border: 1px solid #dbeafe;
+    background: rgba(255,255,255,0.82);
+    border-radius: 12px;
+    padding: 10px 16px;
+    font-size: 14px;
     font-weight: 600;
-
-    color: #374151;
-
+    color: #334155;
     cursor: pointer;
-
     transition: 0.2s;
 }
 
 .source-btn:hover {
-    background: #e5e7eb;
+    background: #eff6ff;
+    border-color: #93c5fd;
 }

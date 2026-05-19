@@ -3,22 +3,30 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use App\Services\AiChatService;
 use App\Models\ChatLog;
-use Illuminate\Support\Str;
-use OpenApi\Attributes as OA; // <--- SỬA THÀNH ATTRIBUTES
 use App\Models\KnowledgeBase;
+use App\Services\AiChatService;
+use App\Services\KnowledgeSearchService;
+use App\Services\QuestionAnalyzerService;
 use Exception;
+use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use OpenApi\Attributes as OA;
 
 class ChatbotController extends Controller
 {
-
     protected AiChatService $aiChatService;
+    protected QuestionAnalyzerService $questionAnalyzerService;
+    protected KnowledgeSearchService $knowledgeSearchService;
 
-    public function __construct(AiChatService $aiChatService)
-    {
+    public function __construct(
+        AiChatService $aiChatService,
+        QuestionAnalyzerService $questionAnalyzerService,
+        KnowledgeSearchService $knowledgeSearchService
+    ) {
         $this->aiChatService = $aiChatService;
+        $this->questionAnalyzerService = $questionAnalyzerService;
+        $this->knowledgeSearchService = $knowledgeSearchService;
     }
 
     #[OA\Post(
@@ -26,84 +34,72 @@ class ChatbotController extends Controller
         summary: 'Gửi câu hỏi cho Chatbot AI',
         tags: ['Chatbot']
     )]
-    #[OA\RequestBody(
-        required: true,
-        content: new OA\JsonContent(
-            required: ['message'],
-            properties: [
-                new OA\Property(property: 'message', description: 'Nội dung câu hỏi của thí sinh', type: 'string', example: 'Ngành CNTT lấy bao nhiêu điểm?'),
-                new OA\Property(property: 'platform', description: 'Nền tảng gửi (web, zalo, facebook)', type: 'string', example: 'web')
-            ]
-        )
-    )]
-    #[OA\Response(
-        response: 200,
-        description: 'Thành công',
-        content: new OA\JsonContent(
-            properties: [
-                new OA\Property(property: 'status', type: 'string', example: 'success'),
-                new OA\Property(
-                    property: 'data',
-                    type: 'object',
-                    properties: [
-                        new OA\Property(property: 'session_id', type: 'string', example: '550e8400-e29b-41d4-a716-446655440000'),
-                        new OA\Property(property: 'reply', type: 'string', example: 'Chào bạn, ngành CNTT năm nay dự kiến lấy 23.5 điểm...')
-                    ]
-                )
-            ]
-        )
-    )]
-    #[OA\Response(response: 422, description: 'Lỗi xác thực dữ liệu (Validation)')]
-    #[OA\Response(response: 500, description: 'Lỗi hệ thống hoặc lỗi AI')]
     public function chat(Request $request)
     {
-        // 1. Validate dữ liệu đầu vào
         $request->validate([
             'message' => 'required|string|max:1000',
             'platform' => 'nullable|string'
         ]);
 
-        $userMessage = $request->input('message');
+        $startTime = microtime(true);
+
+        $userMessage = trim($request->input('message'));
         $platform = $request->input('platform', 'web');
         $sessionId = $request->header('X-Session-ID', Str::uuid()->toString());
 
         try {
-            // 2. Gọi Service xử lý AI (Ollama / Gemini)
-            $botReply = $this->aiChatService->getAnswer($userMessage);
+            $analysis = $this->questionAnalyzerService->analyze($userMessage);
 
-            // 3. Lưu log vào Database (phục vụ Dashboard)
+            $knowledge = $this->knowledgeSearchService->searchSmart(
+                $userMessage,
+                $analysis,
+                6
+            );
+
+            $botReply = $this->aiChatService->getAnswer(
+                $userMessage,
+                $knowledge,
+                $analysis
+            );
+
+            $responseTime = round(microtime(true) - $startTime, 3);
+
             try {
                 ChatLog::create([
                     'session_id' => $sessionId,
                     'platform' => $platform,
                     'user_query' => $userMessage,
                     'bot_response' => $botReply,
+                    'intent' => $analysis['intent'] ?? null,
+                    'major_name' => $analysis['major'] ?? null,
+                    'admission_year' => $analysis['year'] ?? null,
+                    'response_time' => $responseTime,
                 ]);
             } catch (\Throwable $logException) {
-                // Bỏ qua lỗi lưu log để chatbot vẫn trả lời được khi DB chưa sẵn sàng.
+                // Không để lỗi log làm chết chatbot.
             }
 
-            // 4. Trả về kết quả JSON cho Frontend
             return response()->json([
                 'status' => 'success',
                 'data' => [
                     'session_id' => $sessionId,
-                    'reply' => $botReply
+                    'reply' => $botReply,
+                    'analysis' => $analysis,
                 ]
             ], 200);
 
         } catch (Exception $e) {
             return response()->json([
-                'status' => 'success',
-                'data' => [],
+                'status' => 'error',
+                'message' => 'Chatbot đang gặp lỗi: ' . $e->getMessage(),
+                'data' => [
+                    'session_id' => $sessionId,
+                    'reply' => 'Xin lỗi, hiện tại hệ thống chưa xử lý được câu hỏi này. Bạn thử hỏi lại rõ hơn giúp mình nhé.'
+                ]
             ], 200);
         }
     }
 
-
-    /**
-     * Trả về danh sách câu hỏi thường gặp (FAQ) từ bảng knowledge_bases.
-     */
     public function faqQuestions(): \Illuminate\Http\JsonResponse
     {
         try {
@@ -131,7 +127,4 @@ class ChatbotController extends Controller
             ], 500);
         }
     }
-
-
-
 }

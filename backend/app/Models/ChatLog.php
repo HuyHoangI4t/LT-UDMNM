@@ -14,5 +14,9 @@ class ChatLog extends Model
         'platform',
         'user_query',
         'bot_response',
+        'intent',
+        'major_name',
+        'admission_year',
+        'response_time',
     ];
 }

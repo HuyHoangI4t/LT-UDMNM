@@ -11,18 +11,19 @@ class KnowledgeBase extends Model
 
     protected $fillable = [
         'category',
+        'source_type',
         'title',
         'url',
         'content',
         'pdf_links',
         'image_links',
+        'published_at',
         'embedding',
     ];
 
     protected $casts = [
         'pdf_links' => 'array',
         'image_links' => 'array',
+        'published_at' => 'datetime',
     ];
 }
-
-
