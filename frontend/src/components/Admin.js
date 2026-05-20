@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import {
   Chart as ChartJS,
@@ -11,7 +11,8 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js';
-import { Line, Bar, Pie, Doughnut } from 'react-chartjs-2';
+import { Line, Bar, Pie } from 'react-chartjs-2';
+import { useAuth } from '../contexts/AuthContext';
 import './Admin.css';
 
 ChartJS.register(
@@ -28,27 +29,27 @@ ChartJS.register(
 const API_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000/api';
 
 const Admin = () => {
+  const { authHeaders, isAuthenticated, login, logout, user } = useAuth();
   const [overview, setOverview] = useState(null);
   const [topMajors, setTopMajors] = useState([]);
   const [questionsByIntent, setQuestionsByIntent] = useState([]);
   const [questionsByDay, setQuestionsByDay] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [loginForm, setLoginForm] = useState({ email: '', password: '' });
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState('');
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
       const [overviewRes, majorsRes, intentRes, dayRes] = await Promise.all([
-        axios.get(`${API_URL}/dashboard/overview`),
-        axios.get(`${API_URL}/dashboard/top-majors?limit=10`),
-        axios.get(`${API_URL}/dashboard/questions-by-intent`),
-        axios.get(`${API_URL}/dashboard/questions-by-day`),
+        axios.get(`${API_URL}/dashboard/overview`, { headers: authHeaders }),
+        axios.get(`${API_URL}/dashboard/top-majors?limit=10`, { headers: authHeaders }),
+        axios.get(`${API_URL}/dashboard/questions-by-intent`, { headers: authHeaders }),
+        axios.get(`${API_URL}/dashboard/questions-by-day`, { headers: authHeaders }),
       ]);
 
       setOverview(overviewRes.data);
@@ -56,23 +57,106 @@ const Admin = () => {
       setQuestionsByIntent(intentRes.data || []);
       setQuestionsByDay(dayRes.data || []);
     } catch (err) {
-      console.error('Lỗi khi tải dữ liệu dashboard:', err);
-      setError(err.message || 'Không thể tải dữ liệu');
+      console.error('Dashboard load failed:', err);
+
+      if (err?.response?.status === 401) {
+        setError('Token hết hạn hoặc không hợp lệ. Vui lòng đăng nhập lại.');
+        await logout();
+      } else {
+        setError('Không thể tải dữ liệu dashboard. Kiểm tra kết nối API và thử lại.');
+      }
     } finally {
       setLoading(false);
     }
+  }, [authHeaders, logout]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchDashboardData();
+    }
+  }, [fetchDashboardData, isAuthenticated]);
+
+  const handleLogin = async (event) => {
+    event.preventDefault();
+    setLoginLoading(true);
+    setLoginError('');
+
+    try {
+      await login(loginForm);
+    } catch (err) {
+      setLoginError(
+        err?.response?.status === 422 || err?.response?.status === 401
+          ? 'Email hoặc mật khẩu không đúng.'
+          : 'Không thể kết nối API đăng nhập.'
+      );
+    } finally {
+      setLoginLoading(false);
+    }
   };
+
+  const renderHeader = () => (
+    <div className="admin-header">
+      <h1>Admin Dashboard</h1>
+      <div className="admin-actions">
+        {user?.email && <span>{user.email}</span>}
+        <button className="refresh-btn" type="button" onClick={fetchDashboardData}>
+          Làm mới
+        </button>
+        <button className="secondary-btn" type="button" onClick={logout}>
+          Đăng xuất
+        </button>
+      </div>
+    </div>
+  );
+
+  if (!isAuthenticated) {
+    return (
+      <div className="admin-page">
+        <form className="admin-login" onSubmit={handleLogin}>
+          <h1>Đăng nhập Admin</h1>
+          <label>
+            Email
+            <input
+              type="email"
+              value={loginForm.email}
+              onChange={(event) =>
+                setLoginForm((prev) => ({ ...prev, email: event.target.value }))
+              }
+              autoComplete="email"
+              required
+            />
+          </label>
+          <label>
+            Mật khẩu
+            <input
+              type="password"
+              value={loginForm.password}
+              onChange={(event) =>
+                setLoginForm((prev) => ({ ...prev, password: event.target.value }))
+              }
+              autoComplete="current-password"
+              required
+            />
+          </label>
+          {loginError && <div className="error-message compact">{loginError}</div>}
+          <button className="refresh-btn" type="submit" disabled={loginLoading}>
+            {loginLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+          </button>
+        </form>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
       <div className="admin-page">
-        <div className="admin-header">
-          <h1>📊 Admin Dashboard</h1>
-          <button className="refresh-btn" onClick={fetchDashboardData}>
-            ↻ Làm mới
-          </button>
+        {renderHeader()}
+        <div className="dashboard-skeleton">
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
         </div>
-        <div className="loading">Đang tải dữ liệu...</div>
       </div>
     );
   }
@@ -80,18 +164,12 @@ const Admin = () => {
   if (error) {
     return (
       <div className="admin-page">
-        <div className="admin-header">
-          <h1>📊 Admin Dashboard</h1>
-          <button className="refresh-btn" onClick={fetchDashboardData}>
-            ↻ Làm mới
-          </button>
-        </div>
-        <div className="error-message">Lỗi: {error}</div>
+        {renderHeader()}
+        <div className="error-message">{error}</div>
       </div>
     );
   }
 
-  // Chart 1: Overview Stats
   const overviewChartData = {
     labels: ['Tổng câu hỏi', 'Hôm nay', 'Phiên hoạt động', 'Thời gian TB'],
     datasets: [
@@ -101,7 +179,7 @@ const Admin = () => {
           overview?.total_questions || 0,
           overview?.today_questions || 0,
           overview?.active_sessions || 0,
-          (overview?.average_response_time || 0) * 100, // Scale for visibility
+          (overview?.average_response_time || 0) * 100,
         ],
         backgroundColor: ['#2563eb', '#3b82f6', '#60a5fa', '#93c5fd'],
         borderRadius: 8,
@@ -109,7 +187,6 @@ const Admin = () => {
     ],
   };
 
-  // Chart 2: Top Majors
   const topMajorsData = {
     labels: topMajors.map((m) => m.major_name || 'Không xác định'),
     datasets: [
@@ -123,7 +200,6 @@ const Admin = () => {
     ],
   };
 
-  // Chart 3: Questions by Intent (Pie)
   const intentData = {
     labels: questionsByIntent.map((q) => q.intent || 'Unknown'),
     datasets: [
@@ -147,7 +223,6 @@ const Admin = () => {
     ],
   };
 
-  // Chart 4: Questions by Day (Line)
   const dayData = {
     labels: questionsByDay.map((d) => d.date || d.period || 'N/A'),
     datasets: [
@@ -169,38 +244,33 @@ const Admin = () => {
 
   return (
     <div className="admin-page">
-      <div className="admin-header">
-        <h1>📊 Admin Dashboard</h1>
-        <button className="refresh-btn" onClick={fetchDashboardData}>
-          ↻ Làm mới
-        </button>
-      </div>
+      {renderHeader()}
 
       {overview && (
         <div className="stats-overview">
           <div className="stat-card">
-            <div className="stat-icon">📝</div>
+            <div className="stat-icon">Q</div>
             <div className="stat-content">
               <div className="stat-label">Tổng câu hỏi</div>
               <div className="stat-value">{overview.total_questions || 0}</div>
             </div>
           </div>
           <div className="stat-card">
-            <div className="stat-icon">📅</div>
+            <div className="stat-icon">D</div>
             <div className="stat-content">
               <div className="stat-label">Hôm nay</div>
               <div className="stat-value">{overview.today_questions || 0}</div>
             </div>
           </div>
           <div className="stat-card">
-            <div className="stat-icon">👥</div>
+            <div className="stat-icon">S</div>
             <div className="stat-content">
               <div className="stat-label">Phiên hoạt động</div>
               <div className="stat-value">{overview.active_sessions || 0}</div>
             </div>
           </div>
           <div className="stat-card">
-            <div className="stat-icon">⏱️</div>
+            <div className="stat-icon">T</div>
             <div className="stat-content">
               <div className="stat-label">Thời gian TB (s)</div>
               <div className="stat-value">{(overview.average_response_time || 0).toFixed(2)}</div>
@@ -211,12 +281,12 @@ const Admin = () => {
 
       <div className="charts-grid">
         <div className="chart-card">
-          <h3>📊 Thống kê Overview</h3>
+          <h3>Thống kê tổng quan</h3>
           <Bar data={overviewChartData} options={{ maintainAspectRatio: true }} />
         </div>
 
         <div className="chart-card">
-          <h3>🎓 Top Ngành (10 nhiều nhất)</h3>
+          <h3>Top ngành</h3>
           <Bar
             data={topMajorsData}
             options={{
@@ -227,12 +297,12 @@ const Admin = () => {
         </div>
 
         <div className="chart-card">
-          <h3>❓ Phân bố Intent</h3>
+          <h3>Phân bổ intent</h3>
           <Pie data={intentData} options={{ maintainAspectRatio: true }} />
         </div>
 
         <div className="chart-card">
-          <h3>📈 Câu hỏi theo ngày</h3>
+          <h3>Câu hỏi theo ngày</h3>
           <Line
             data={dayData}
             options={{

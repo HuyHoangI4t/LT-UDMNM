@@ -10,6 +10,7 @@ use App\Services\KnowledgeSearchService;
 use App\Services\QuestionAnalyzerService;
 use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use OpenApi\Attributes as OA;
 
@@ -25,7 +26,22 @@ class ChatbotController extends Controller
     #[OA\Post(
         path: '/api/chat',
         summary: 'Gửi câu hỏi cho Chatbot AI',
-        tags: ['Chatbot']
+        tags: ['Chatbot'],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['message'],
+                properties: [
+                    new OA\Property(property: 'message', type: 'string', example: 'Nganh Cong nghe thong tin lay bao nhieu diem?'),
+                    new OA\Property(property: 'platform', type: 'string', example: 'web'),
+                    new OA\Property(property: 'history', type: 'array', items: new OA\Items(type: 'object')),
+                ]
+            )
+        ),
+        responses: [
+            new OA\Response(response: 200, description: 'Chatbot tra loi thanh cong'),
+            new OA\Response(response: 422, description: 'Du lieu khong hop le'),
+        ]
     )]
     public function chat(Request $request)
     {
@@ -60,11 +76,29 @@ class ChatbotController extends Controller
                 'detail' => 'Truy xuất MySQL/knowledge base và semantic search nếu được bật.',
             ];
 
-            $botReply = $this->aiChatService->getAnswer($userMessage, $knowledge, $analysis, $history);
+            $cacheKey = $this->buildChatCacheKey($userMessage, $knowledge, $analysis, $history);
+            $cacheHit = Cache::has($cacheKey);
+            $aiError = null;
+
+            try {
+                $botReply = Cache::remember(
+                    $cacheKey,
+                    (int) env('CHAT_CACHE_TTL_SECONDS', 3600),
+                    fn () => $this->aiChatService->getAnswer($userMessage, $knowledge, $analysis, $history)
+                );
+            } catch (\Throwable $e) {
+                $aiError = $e->getMessage();
+                $botReply = $this->buildFallbackReply($knowledge);
+            }
+
             $agentSteps[] = [
                 'step' => 'llm_generation',
-                'status' => 'completed',
-                'detail' => 'Sinh câu trả lời dựa trên context thật của trường.',
+                'status' => $aiError ? 'degraded' : 'completed',
+                'detail' => $aiError
+                    ? 'AI đang tạm thời không khả dụng, dùng câu trả lời dự phòng từ dữ liệu đã truy xuất.'
+                    : ($cacheHit
+                    ? 'Dùng câu trả lời từ cache để giảm gọi API.'
+                    : 'Sinh câu trả lời dựa trên context thật của trường.'),
             ];
 
             $responseTime = round(microtime(true) - $startTime, 3);
@@ -98,6 +132,7 @@ class ChatbotController extends Controller
                     'analysis' => $analysis,
                     'agent' => [
                         'steps' => $agentSteps,
+                        'cached' => $cacheHit,
                     ],
                     'rag' => $knowledge['retrieval'] ?? [],
                 ],
@@ -178,6 +213,83 @@ class ChatbotController extends Controller
             ->take(6)
             ->values()
             ->toArray();
+    }
+
+    private function buildChatCacheKey(string $message, array $knowledge, array $analysis, array $history): string
+    {
+        $payload = [
+            'message' => Str::ascii(mb_strtolower(trim($message), 'UTF-8')),
+            'context_hash' => hash('sha256', (string) ($knowledge['context'] ?? '')),
+            'analysis' => [
+                'intent' => $analysis['intent'] ?? null,
+                'major' => $analysis['major'] ?? null,
+                'year' => $analysis['year'] ?? null,
+                'admission_method' => $analysis['admission_method'] ?? null,
+                'score' => $analysis['score'] ?? null,
+                'province' => $analysis['province'] ?? null,
+            ],
+            'history' => collect($history)
+                ->take(-6)
+                ->map(fn ($item) => [
+                    'role' => is_array($item) ? ($item['role'] ?? null) : null,
+                    'text' => is_array($item) ? mb_substr((string) ($item['text'] ?? ''), 0, 500, 'UTF-8') : null,
+                ])
+                ->values()
+                ->all(),
+        ];
+
+        return 'chatbot:answer:' . hash('sha256', json_encode($payload, JSON_UNESCAPED_UNICODE));
+    }
+
+    private function buildFallbackReply(array $knowledge): string
+    {
+        $majorResults = $knowledge['admission_majors'] ?? [];
+        $knowledgeBases = $knowledge['knowledge_bases'] ?? [];
+
+        if (!empty($majorResults)) {
+            $lines = ['Mình tìm thấy thông tin tuyển sinh liên quan như sau:'];
+
+            foreach (array_slice($majorResults, 0, 3) as $item) {
+                $subjectGroups = is_array($item['subject_groups'] ?? null)
+                    ? implode(', ', $item['subject_groups'])
+                    : ($item['subject_groups'] ?? '');
+
+                $lines[] = '';
+                $lines[] = '**' . trim(($item['major_name'] ?? 'Ngành') . ' ' . ($item['year'] ?? '')) . '**';
+                $lines[] = '- Mã ngành: ' . ($item['major_code'] ?? 'chưa có');
+                $lines[] = '- Tổ hợp xét tuyển: ' . ($subjectGroups ?: 'chưa có');
+                $lines[] = '- Điểm THPT: ' . ($item['score_thpt'] ?? 'chưa có');
+                $lines[] = '- Điểm học bạ: ' . ($item['score_hoc_ba'] ?? 'chưa có');
+                $lines[] = '- Điểm ĐGNL: ' . ($item['score_dgnl'] ?? 'chưa có');
+                $lines[] = '- Chỉ tiêu: ' . ($item['quota'] ?? 'chưa có');
+                $lines[] = '- Học phí: ' . ($item['tuition_fee'] ?? 'chưa có');
+
+                if (!empty($item['description'])) {
+                    $lines[] = '- Mô tả/chương trình: ' . $item['description'];
+                }
+
+                if (!empty($item['career_paths'])) {
+                    $lines[] = '- Cơ hội việc làm: ' . $item['career_paths'];
+                }
+
+                if (!empty($item['source_url'])) {
+                    $lines[] = '- Nguồn: ' . $item['source_url'];
+                }
+            }
+
+            return implode("\n", $lines);
+        }
+
+        if (!empty($knowledgeBases)) {
+            $first = $knowledgeBases[0];
+            $content = trim(mb_substr((string) ($first['content'] ?? ''), 0, 1200, 'UTF-8'));
+
+            return trim("Mình tìm thấy phần dữ liệu liên quan sau:\n\n"
+                . (($first['title'] ?? '') ? "**{$first['title']}**\n" : '')
+                . ($content ?: 'Hệ thống chưa có nội dung chi tiết phù hợp.'));
+        }
+
+        return 'Mình chưa tìm thấy dữ liệu phù hợp để trả lời chính xác câu hỏi này. Bạn thử hỏi rõ hơn theo tên ngành, năm tuyển sinh hoặc phương thức xét tuyển nhé.';
     }
 
     private function buildFaqRelevanceScore(string $fullLike, array $keywords): array

@@ -17,7 +17,7 @@ function Header() {
           </button>
 
           <a
-            href="https://tuyensinh.ttn.edu.vn/"
+            href="https://ttn.edu.vn/"
             className="icon-btn"
             aria-label="Trang chủ tuyển sinh"
             title="Trang chủ tuyển sinh"
@@ -46,7 +46,7 @@ function Header() {
 
         <a
           className="header-menu-btn"
-          href="https://tuyensinh.ttn.edu.vn/lien-he"
+          href="https://zalo.me/0965164445"
           target="_blank"
           rel="noopener noreferrer"
         >

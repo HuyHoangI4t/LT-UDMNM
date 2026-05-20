@@ -60,7 +60,7 @@ class ChatbotApiTest extends TestCase
         $response->assertUnprocessable();
     }
 
-    public function test_chat_endpoint_returns_503_when_ai_service_fails(): void
+    public function test_chat_endpoint_returns_fallback_when_ai_service_fails(): void
     {
         $this->app->instance(AiChatService::class, new class extends AiChatService {
             public function getAnswer(string $userMessage, array $knowledge = [], array $analysis = [], array $history = []): string
@@ -75,8 +75,9 @@ class ChatbotApiTest extends TestCase
         ]);
 
         $response
-            ->assertStatus(503)
-            ->assertJsonPath('status', 'error');
+            ->assertOk()
+            ->assertJsonPath('status', 'success')
+            ->assertJsonPath('data.agent.steps.2.status', 'degraded');
     }
 
     public function test_faq_questions_are_ranked_and_limited(): void

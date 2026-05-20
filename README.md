@@ -33,8 +33,14 @@ GEMINI_TOP_K=40
 
 AI_ENABLE_EMBEDDING_SEARCH=false
 GEMINI_EMBEDDING_MODEL=gemini-embedding-001
+EMBEDDING_LOCAL_PREFILTER_LIMIT=200
+VECTOR_STORE_DRIVER=local
+CHAT_CACHE_TTL_SECONDS=3600
 
 ADMIN_API_AUTH=true
+ADMIN_NAME=Administrator
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=admin123456
 ```
 
 Production PHP extensions checklist:
@@ -53,6 +59,7 @@ php artisan import:pdf-extracted ../frontend/src/ttn_data/pdf_extracted.json
 php artisan admission:majors-normalize --year=2026
 php artisan embedding:knowledge --limit=100
 php artisan faq:generate --limit=50
+php artisan db:seed
 php artisan test
 ```
 
@@ -69,6 +76,7 @@ Use the correct year for the current dataset. Multi-year score answers require i
 ```bash
 cd frontend
 npm install
+cp .env.example .env
 npm start
 ```
 
@@ -83,24 +91,40 @@ REACT_APP_API_URL=http://127.0.0.1:8000/api
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
 | GET | `/api/health` | Backend health check |
+| POST | `/api/login` | Admin login, returns Sanctum token |
+| GET | `/api/me` | Current admin profile |
+| POST | `/api/logout` | Revoke current token |
+| POST | `/api/register` | Create another admin account |
 | POST | `/api/chat` | Ask chatbot |
 | GET | `/api/faq-questions` | Suggested questions |
 | GET | `/api/chat-logs` | Chat logs |
 | GET | `/api/chat-logs/{id}` | Chat log detail |
 | DELETE | `/api/chat-logs/{id}` | Delete chat log |
+| CRUD | `/api/knowledge-bases` | Admin CMS for RAG knowledge |
+| CRUD | `/api/admission-majors` | Admin CMS for admission major data |
 | GET | `/api/dashboard/overview` | Dashboard totals |
 | GET | `/api/dashboard/top-majors` | Most asked majors |
 | GET | `/api/dashboard/questions-by-intent` | Intent statistics |
 | GET | `/api/dashboard/questions-by-day` | Daily statistics |
 
-Set `ADMIN_API_AUTH=true` to protect chat log and dashboard routes with Sanctum.
+Set `ADMIN_API_AUTH=true` to protect admin, CMS, chat log, and dashboard routes with Sanctum.
+
+## Docker
+
+```bash
+cp backend/.env.example backend/.env
+docker compose up --build
+```
+
+Frontend: `http://localhost:3000`
+Backend API: `http://localhost:8000/api`
 
 ## Chatbot Flow
 
 1. React sends `message`, `platform`, and recent `history` to `/api/chat`.
 2. Backend analyzes intent, major, year, and category.
 3. Backend retrieves context from `admission_majors` and `knowledge_bases`.
-4. Optional embedding search can add semantic matches when enabled. The current local mode prefilters rows before cosine scoring in PHP; use Qdrant, FAISS, pgvector, or another indexed vector store before scaling beyond small/medium datasets.
+4. Optional embedding search can add semantic matches when enabled. Local mode uses `EMBEDDING_LOCAL_PREFILTER_LIMIT` before cosine scoring in PHP; set `VECTOR_STORE_DRIVER` to document the target indexed store when moving to Qdrant, FAISS, pgvector, or another vector backend.
 5. Gemini receives the system prompt, retrieved context, recent history, and user question.
 6. Backend stores the interaction in `chat_logs`.
 7. Frontend renders the answer and fetches related FAQ suggestions.

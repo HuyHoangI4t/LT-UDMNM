@@ -31,6 +31,7 @@ class KnowledgeSearchService
                 'keyword_results' => count($keywordResults),
                 'semantic_results' => count($semanticResults),
                 'semantic_enabled' => filter_var(env('AI_ENABLE_EMBEDDING_SEARCH', false), FILTER_VALIDATE_BOOLEAN),
+                'vector_store' => env('VECTOR_STORE_DRIVER', 'local'),
                 'sources' => $this->buildSources($majorResults, $knowledgeResults),
             ],
             'context' => $this->buildContext($majorResults, $knowledgeResults),
@@ -210,7 +211,7 @@ class KnowledgeSearchService
 
             return $query
                 ->latest()
-                ->limit(200)
+                ->limit((int) env('EMBEDDING_LOCAL_PREFILTER_LIMIT', 200))
                 ->get()
                 ->map(function ($item) use ($queryVector) {
                     $vector = json_decode($item->embedding, true);

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -92,29 +92,22 @@ const ChatAi = () => {
   const [isListening, setIsListening] = useState(false);
   const [suggestedQuestions, setSuggestedQuestions] = useState([]);
   const [suggestedPage, setSuggestedPage] = useState(0);
-  const greeting = getGreeting();
   const messagesContainerRef = useRef(null);
   const recognitionRef = useRef(null);
   const activeRequestRef = useRef(null);
   const sendLockRef = useRef(false);
   const mountedRef = useRef(true);
   const suggestedPageSize = 3;
+  const greeting = getGreeting();
 
   const currentSession = useMemo(
-    () =>
-      sessions.find((session) => session.id === selectedSessionId) ||
-      sessions[0],
+    () => sessions.find((session) => session.id === selectedSessionId) || sessions[0],
     [sessions, selectedSessionId]
   );
 
-  const lastMessage =
-    currentSession.messages[currentSession.messages.length - 1];
-
-  const suggestedPageCount = Math.max(
-    1,
-    Math.ceil(suggestedQuestions.length / suggestedPageSize)
-  );
-
+  const lastMessage = currentSession.messages[currentSession.messages.length - 1];
+  const canSend = useMemo(() => message.trim().length > 0 && !loading, [message, loading]);
+  const suggestedPageCount = Math.max(1, Math.ceil(suggestedQuestions.length / suggestedPageSize));
   const visibleSuggestedQuestions = suggestedQuestions.slice(
     suggestedPage * suggestedPageSize,
     suggestedPage * suggestedPageSize + suggestedPageSize
@@ -139,17 +132,11 @@ const ChatAi = () => {
   useEffect(() => {
     if (lastMessage?.role === 'ai' && messagesContainerRef.current) {
       const container = messagesContainerRef.current;
-
       requestAnimationFrame(() => {
         container.scrollTop = container.scrollHeight;
       });
     }
   }, [currentSession.messages.length, lastMessage?.role]);
-
-  const canSend = useMemo(
-    () => message.trim().length > 0 && !loading,
-    [message, loading]
-  );
 
   const updateSession = (sessionId, nextSessionOrUpdater) => {
     setSessions((prev) =>
@@ -185,8 +172,7 @@ const ChatAi = () => {
   };
 
   const toggleSpeechRecognition = () => {
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
       alert('Trình duyệt không hỗ trợ nhập bằng giọng nói.');
@@ -197,7 +183,6 @@ const ChatAi = () => {
 
     const recognition = new SpeechRecognition();
     recognitionRef.current = recognition;
-
     recognition.lang = 'vi-VN';
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
@@ -206,8 +191,7 @@ const ChatAi = () => {
     recognition.start();
 
     recognition.onresult = (event) => {
-      const transcript = event.results[0][0].transcript;
-      setMessage(transcript);
+      setMessage(event.results[0][0].transcript);
     };
 
     recognition.onerror = () => {
@@ -227,12 +211,10 @@ const ChatAi = () => {
     sendLockRef.current = true;
 
     const sessionId = currentSession.id;
-
     const newTitle =
       currentSession.title === 'Cuộc trò chuyện mới'
         ? formatSessionTitle(text)
         : currentSession.title;
-
     const userMessage = { role: 'user', text };
     const nextMessages = [...currentSession.messages, userMessage];
 
@@ -269,17 +251,18 @@ const ChatAi = () => {
         throw new Error(response?.data?.message || 'Chatbot trả về lỗi.');
       }
 
-      const reply =
-        response?.data?.data?.reply || 'Mình chưa nhận được phản hồi phù hợp.';
-      const sources = response?.data?.data?.rag?.sources || [];
-
-      const aiMessage = { role: 'ai', text: reply, sources };
+      const reply = response?.data?.data?.reply || 'Mình chưa nhận được phản hồi phù hợp.';
+      const aiMessage = { role: 'ai', text: reply };
 
       updateSession(sessionId, (session) => ({
         ...session,
         title: newTitle,
         messages: [...nextMessages, aiMessage],
       }));
+
+      if (mountedRef.current) {
+        setLoading(false);
+      }
 
       try {
         const q = encodeURIComponent(text);
@@ -336,7 +319,9 @@ const ChatAi = () => {
       remarkPlugins={[remarkGfm]}
       components={{
         a: ({ href, children }) => {
-          const safeHref = typeof href === 'string' && /^https?:\/\//i.test(href) ? href : undefined;
+          const safeHref = typeof href === 'string' && /^https?:\/\//i.test(href)
+            ? href
+            : undefined;
 
           return safeHref ? (
             <a href={safeHref} target="_blank" rel="noopener noreferrer">
@@ -352,20 +337,6 @@ const ChatAi = () => {
     </ReactMarkdown>
   );
 
-  const renderSourceLabel = (source) => {
-    if (!source) return 'Nguồn';
-
-    if (source.type === 'admission_major') {
-      return 'Ngành tuyển sinh';
-    }
-
-    if (source.type && source.type !== 'knowledge_base') {
-      return source.type.replace(/_/g, ' ');
-    }
-
-    return 'Tri thức website';
-  };
-
   return (
     <main className="chat-page">
       <section className="chat-shell" aria-label="TNU ChatBot">
@@ -375,21 +346,14 @@ const ChatAi = () => {
             <h1>{currentSession.title}</h1>
           </div>
 
-          <button
-            className="new-chat-btn"
-            type="button"
-            onClick={startNewSession}
-            disabled={loading}
-          >
+          <button className="new-chat-btn" type="button" onClick={startNewSession} disabled={loading}>
             <i className="bi bi-plus-lg" aria-hidden="true"></i>
             <span>Cuộc mới</span>
           </button>
         </div>
 
         <div
-          className={`chat-messages ${
-            currentSession.messages.length <= 1 ? 'welcome-center' : ''
-          }`}
+          className={`chat-messages ${currentSession.messages.length <= 1 ? 'welcome-center' : ''}`}
           ref={messagesContainerRef}
         >
           {currentSession.messages.length <= 1 && (
@@ -398,9 +362,7 @@ const ChatAi = () => {
                 <i className={`bi ${greeting.icon}`} aria-hidden="true"></i>
               </span>
 
-              <h2 className="welcome-title">
-                Chào {greeting.text}
-              </h2>
+              <h2 className="welcome-title">Chào {greeting.text}</h2>
               <p className="welcome-subtitle">
                 Hãy đặt câu hỏi về ngành học, điểm chuẩn, học phí hoặc hồ sơ xét tuyển.
               </p>
@@ -442,9 +404,7 @@ const ChatAi = () => {
           )}
 
           {currentSession.messages
-            .filter((item, index) => {
-              return !(currentSession.messages.length <= 1 && index === 0);
-            })
+            .filter((item, index) => !(currentSession.messages.length <= 1 && index === 0))
             .map((item, index) => (
               <div
                 key={`${item.role}-${index}`}
@@ -469,33 +429,6 @@ const ChatAi = () => {
                       <i className="bi bi-arrow-clockwise" aria-hidden="true"></i>
                       <span>Thử lại</span>
                     </button>
-                  )}
-                  {item.role === 'ai' && Array.isArray(item.sources) && item.sources.length > 0 && (
-                    <div className="source-list" aria-label="Nguồn tham khảo">
-                      {item.sources.slice(0, 4).map((source, idx) => {
-                        const label = renderSourceLabel(source);
-                        const title = source?.title || source?.url || 'Nguồn tham khảo';
-
-                        return source?.url ? (
-                          <a
-                            key={`${title}-${idx}`}
-                            className="source-pill"
-                            href={source.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title={title}
-                          >
-                            <span className="source-label">{label}</span>
-                            <span className="source-title">{title}</span>
-                          </a>
-                        ) : (
-                          <span key={`${title}-${idx}`} className="source-pill" title={title}>
-                            <span className="source-label">{label}</span>
-                            <span className="source-title">{title}</span>
-                          </span>
-                        );
-                      })}
-                    </div>
                   )}
                 </div>
               </div>
@@ -528,7 +461,7 @@ const ChatAi = () => {
             </button>
 
             <div className="related-list">
-              {renderSuggestedSlots().map((question, idx) => (
+              {renderSuggestedSlots().map((question, idx) =>
                 question ? (
                   <button
                     key={`q-${suggestedPage}-${idx}`}
@@ -547,7 +480,7 @@ const ChatAi = () => {
                     aria-hidden="true"
                   />
                 )
-              ))}
+              )}
             </div>
 
             <button

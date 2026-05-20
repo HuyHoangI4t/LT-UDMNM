@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ChatLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Eloquent\Builder;
 use OpenApi\Attributes as OA;
 
 class DashboardController extends Controller
@@ -13,7 +14,10 @@ class DashboardController extends Controller
     #[OA\Get(
         path: '/api/dashboard/overview',
         summary: 'Dashboard overview',
-        tags: ['Dashboard']
+        tags: ['Dashboard'],
+        responses: [
+            new OA\Response(response: 200, description: 'Dashboard overview data'),
+        ]
     )]
     public function overview(Request $request)
     {
@@ -36,7 +40,10 @@ class DashboardController extends Controller
     #[OA\Get(
         path: '/api/dashboard/top-majors',
         summary: 'Top majors',
-        tags: ['Dashboard']
+        tags: ['Dashboard'],
+        responses: [
+            new OA\Response(response: 200, description: 'Top majors data'),
+        ]
     )]
     public function topMajors(Request $request)
     {
@@ -69,7 +76,10 @@ class DashboardController extends Controller
     #[OA\Get(
         path: '/api/dashboard/questions-by-intent',
         summary: 'Questions by intent',
-        tags: ['Dashboard']
+        tags: ['Dashboard'],
+        responses: [
+            new OA\Response(response: 200, description: 'Questions grouped by intent'),
+        ]
     )]
     public function questionsByIntent(Request $request)
     {
@@ -84,7 +94,10 @@ class DashboardController extends Controller
     #[OA\Get(
         path: '/api/dashboard/questions-by-day',
         summary: 'Questions by day',
-        tags: ['Dashboard']
+        tags: ['Dashboard'],
+        responses: [
+            new OA\Response(response: 200, description: 'Questions grouped by day'),
+        ]
     )]
     public function questionsByDay(Request $request)
     {
@@ -214,7 +227,7 @@ class DashboardController extends Controller
         ]);
     }
 
-    private function applyDateRange($query, Request $request)
+    private function applyDateRange(Builder $query, Request $request): Builder
     {
         if ($request->filled('from')) {
             $query->whereDate('created_at', '>=', $request->query('from'));
