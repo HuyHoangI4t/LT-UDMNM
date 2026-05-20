@@ -127,7 +127,7 @@
     height: 42px;
     border: none;
     border-radius: 16px;
-    background: #eff6ff;
+    background: #deecff;
     color: #2563eb;
     font-size: 16px;
     cursor: pointer;
@@ -244,5 +244,47 @@
     40% {
         transform: scale(1.2);
         opacity: 1;
+    }
+}
+
+.message-bubble {
+    line-height: 1.5;
+}
+
+.message-bubble ul {
+    padding-left: 18px;
+    margin: 6px 0;
+}
+
+.message-bubble li {
+    margin-bottom: 4px;
+}
+
+.message-bubble br {
+    line-height: 1.2;
+}
+
+.msg-gap {
+    height: 8px;
+}
+
+.mic-btn.active {
+    background: #2563eb;
+    color: white;
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(37,99,235,0.5);
+    }
+    70% {
+        transform: scale(1.08);
+        box-shadow: 0 0 0 10px rgba(37,99,235,0);
+    }
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(37,99,235,0);
     }
 }

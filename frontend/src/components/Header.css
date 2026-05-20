@@ -3,6 +3,7 @@
     background: rgba(255,255,255,0.82);
     backdrop-filter: blur(10px);
     border: 1px solid rgba(255,255,255,0.4);
+    border-bottom: 3px solid rgb(15, 104, 229);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -10,7 +11,7 @@
     max-width: 1080px;
     margin: 12px auto;
     width: calc(100% - 28px);
-    border-radius: 18px;
+    border-radius: 10px;
     box-shadow: 0 8px 20px rgba(15,104,229,0.08);
     position: sticky;
     top: 12px;
