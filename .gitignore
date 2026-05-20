@@ -3,7 +3,10 @@
 # =========================
 
 # Laravel backend
+/vendor/
 /backend/vendor/
+/backend/database/*.sql
+/backend/test
 /backend/node_modules/
 /backend/bootstrap/cache/
 /backend/storage/logs/
@@ -13,6 +16,7 @@
 /backend/*.pem
 
 # React frontend
+/node_modules/
 /frontend/node_modules/
 /frontend/build/
 

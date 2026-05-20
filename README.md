@@ -109,16 +109,6 @@ REACT_APP_API_URL=http://127.0.0.1:8000/api
 
 Set `ADMIN_API_AUTH=true` to protect admin, CMS, chat log, and dashboard routes with Sanctum.
 
-## Docker
-
-```bash
-cp backend/.env.example backend/.env
-docker compose up --build
-```
-
-Frontend: `http://localhost:3000`
-Backend API: `http://localhost:8000/api`
-
 ## Chatbot Flow
 
 1. React sends `message`, `platform`, and recent `history` to `/api/chat`.
