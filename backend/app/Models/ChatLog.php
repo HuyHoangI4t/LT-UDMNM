@@ -17,6 +17,20 @@ class ChatLog extends Model
         'intent',
         'major_name',
         'admission_year',
+        'admission_method',
+        'score',
+        'province',
+        'entities',
+        'agent_steps',
+        'retrieval_summary',
         'response_time',
+    ];
+
+    protected $casts = [
+        'entities' => 'array',
+        'agent_steps' => 'array',
+        'retrieval_summary' => 'array',
+        'score' => 'float',
+        'response_time' => 'float',
     ];
 }

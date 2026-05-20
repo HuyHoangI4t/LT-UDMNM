@@ -7,7 +7,7 @@ use Illuminate\Console\Command;
 
 class ImportAdmissionMajors extends Command
 {
-    protected $signature = 'import:admission-majors {path}';
+    protected $signature = 'import:admission-majors {path} {--year=2026}';
 
     protected $description = 'Import JSON files into admission_majors table';
 
@@ -57,23 +57,62 @@ class ImportAdmissionMajors extends Command
         }
 
         $imported = 0;
+        $year = (int) $this->option('year');
 
         foreach ($data as $item) {
             if (!is_array($item)) {
                 continue;
             }
 
+            $majorName = $item['major_name']
+                ?? $item['name']
+                ?? $item['title']
+                ?? null;
+
+            if (!$majorName) {
+                continue;
+            }
+
+            $majorCode = $item['major_code']
+                ?? $item['code']
+                ?? null;
+
+            $subjectGroups = $item['subject_groups']
+                ?? $item['group']
+                ?? null;
+
+            if (is_string($subjectGroups)) {
+                $subjectGroups = preg_split('/[,;\s]+/', $subjectGroups, -1, PREG_SPLIT_NO_EMPTY);
+            }
+
+            if (!is_array($subjectGroups)) {
+                $subjectGroups = [];
+            }
+
+            $lookup = [
+                'year' => $item['year'] ?? $year,
+            ];
+
+            if ($majorCode) {
+                $lookup['major_code'] = $majorCode;
+            } else {
+                $lookup['major_name'] = $majorName;
+            }
+
             AdmissionMajor::updateOrCreate(
+                $lookup,
                 [
-                    'code' => $item['code'] ?? null,
-                    'name' => $item['name'] ?? null,
-                ],
-                [
-                    'group' => $item['group'] ?? null,
+                    'major_name' => $majorName,
+                    'major_code' => $majorCode,
+                    'subject_groups' => array_values(array_unique(array_map('trim', $subjectGroups))),
+                    'score_thpt' => $item['score_thpt'] ?? null,
+                    'score_hoc_ba' => $item['score_hoc_ba'] ?? null,
+                    'score_dgnl' => $item['score_dgnl'] ?? null,
                     'quota' => $item['quota'] ?? null,
-                    'tuition' => $item['tuition'] ?? null,
-                    'category' => $item['category'] ?? null,
-                    'source_file' => basename($filePath),
+                    'tuition_fee' => $item['tuition_fee'] ?? ($item['tuition'] ?? null),
+                    'description' => $item['description'] ?? ($item['content'] ?? null),
+                    'career_paths' => $item['career_paths'] ?? null,
+                    'source_url' => $item['source_url'] ?? ($item['url'] ?? basename($filePath)),
                 ]
             );
 

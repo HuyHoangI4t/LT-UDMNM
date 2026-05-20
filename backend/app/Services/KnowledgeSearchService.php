@@ -5,19 +5,34 @@ namespace App\Services;
 use App\Models\AdmissionMajor;
 use App\Models\KnowledgeBase;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 class KnowledgeSearchService
 {
+    public function __construct(private EmbeddingService $embeddingService)
+    {
+    }
+
     public function searchSmart(string $question, array $analysis = [], int $limit = 6): array
     {
         $analysis['raw_question'] = $question;
 
         $majorResults = $this->searchAdmissionMajors($analysis, $limit);
-        $knowledgeResults = $this->searchKnowledgeBase($question, $analysis, $limit);
+        $keywordResults = $this->searchKnowledgeBase($question, $analysis, $limit);
+        $semanticResults = $this->searchByEmbedding($question, $limit);
+        $knowledgeResults = $this->mergeKnowledgeResults($keywordResults, $semanticResults, $limit);
 
         return [
             'admission_majors' => $majorResults,
             'knowledge_bases' => $knowledgeResults,
+            'retrieval' => [
+                'top_k' => $limit,
+                'major_results' => count($majorResults),
+                'keyword_results' => count($keywordResults),
+                'semantic_results' => count($semanticResults),
+                'semantic_enabled' => filter_var(env('AI_ENABLE_EMBEDDING_SEARCH', false), FILTER_VALIDATE_BOOLEAN),
+                'sources' => $this->buildSources($majorResults, $knowledgeResults),
+            ],
             'context' => $this->buildContext($majorResults, $knowledgeResults),
         ];
     }
@@ -35,13 +50,18 @@ class KnowledgeSearchService
     private function searchAdmissionMajors(array $analysis, int $limit): array
     {
         $rawQuestion = mb_strtolower($analysis['raw_question'] ?? '', 'UTF-8');
+        $normalizedRawQuestion = $this->normalizeSearchText($rawQuestion);
 
-        $isListAllMajors =
-            str_contains($rawQuestion, 'ngành nào') ||
+        $isListAllMajors = str_contains($rawQuestion, 'ngành nào') ||
             str_contains($rawQuestion, 'các ngành') ||
             str_contains($rawQuestion, 'danh sách ngành') ||
             str_contains($rawQuestion, 'ngành đào tạo') ||
-            str_contains($rawQuestion, 'có ngành');
+            str_contains($rawQuestion, 'có ngành') ||
+            str_contains($normalizedRawQuestion, 'nganh nao') ||
+            str_contains($normalizedRawQuestion, 'cac nganh') ||
+            str_contains($normalizedRawQuestion, 'danh sach nganh') ||
+            str_contains($normalizedRawQuestion, 'nganh dao tao') ||
+            str_contains($normalizedRawQuestion, 'co nganh');
 
         $query = AdmissionMajor::query();
 
@@ -90,7 +110,8 @@ class KnowledgeSearchService
         $keywords = $this->extractKeywords(
             $question . ' ' .
             ($analysis['major'] ?? '') . ' ' .
-            ($analysis['intent'] ?? '')
+            ($analysis['intent'] ?? '') . ' ' .
+            ($analysis['admission_method'] ?? '')
         );
 
         if (empty($keywords)) {
@@ -100,29 +121,15 @@ class KnowledgeSearchService
         $query = KnowledgeBase::query();
 
         if (!empty($analysis['category'])) {
-            $query->where('category', $analysis['category']);
+            $query->where(function ($sub) use ($analysis) {
+                $sub->where('category', $analysis['category'])
+                    ->orWhere('source_type', $analysis['category']);
+            });
         }
 
-        if (!empty($analysis['intent'])) {
-            $intentToSourceType = [
-                'hoc_phi' => 'hoc_phi',
-                'học phí' => 'hoc_phi',
-                'hoc_bong' => 'hoc_bong',
-                'học bổng' => 'hoc_bong',
-                'diem_chuan' => 'diem_chuan',
-                'điểm chuẩn' => 'diem_chuan',
-                'ho_so' => 'ho_so',
-                'hồ sơ' => 'ho_so',
-                'viec_lam' => 'viec_lam',
-                'việc làm' => 'viec_lam',
-                'nganh_dao_tao' => 'nganh_dao_tao',
-            ];
-
-            $sourceType = $intentToSourceType[$analysis['intent']] ?? null;
-
-            if ($sourceType) {
-                $query->where('source_type', $sourceType);
-            }
+        $sourceType = $this->sourceTypeForIntent($analysis['intent'] ?? null);
+        if ($sourceType) {
+            $query->orWhere('source_type', $sourceType);
         }
 
         $query->where(function ($q) use ($keywords) {
@@ -132,19 +139,26 @@ class KnowledgeSearchService
             }
         });
 
+        [$scoreSql, $scoreBindings] = $this->buildRelevanceScore($keywords, $analysis);
+
         $items = $query
+            ->select('knowledge_bases.*')
+            ->selectRaw("{$scoreSql} as relevance", $scoreBindings)
+            ->orderByDesc('relevance')
             ->orderByRaw("
                 CASE
                     WHEN source_type = 'nganh_dao_tao' THEN 0
                     WHEN source_type = 'diem_chuan' THEN 1
                     WHEN source_type = 'hoc_phi' THEN 2
                     WHEN source_type = 'hoc_bong' THEN 3
-                    WHEN category = 'nganh_dao_tao' THEN 4
-                    WHEN category = 'dai_hoc' THEN 5
-                    WHEN category = 'trang_chu' THEN 6
-                    ELSE 7
+                    WHEN source_type = 'ky_tuc_xa' THEN 4
+                    WHEN source_type = 'chuong_trinh_dao_tao' THEN 5
+                    WHEN category = 'nganh_dao_tao' THEN 6
+                    WHEN category = 'dai_hoc' THEN 7
+                    ELSE 8
                 END
             ")
+            ->orderByDesc('published_at')
             ->latest()
             ->limit($limit)
             ->get();
@@ -158,6 +172,72 @@ class KnowledgeSearchService
                 'content' => $this->cleanContent($item->content ?? ''),
             ];
         })->toArray();
+    }
+
+    private function searchByEmbedding(string $question, int $limit): array
+    {
+        if (!filter_var(env('AI_ENABLE_EMBEDDING_SEARCH', false), FILTER_VALIDATE_BOOLEAN)) {
+            return [];
+        }
+
+        try {
+            $queryVector = $this->embeddingService->embed($question);
+
+            if (empty($queryVector)) {
+                return [];
+            }
+
+            return KnowledgeBase::query()
+                ->whereNotNull('embedding')
+                ->where('embedding', '!=', '')
+                ->latest()
+                ->limit(200)
+                ->get()
+                ->map(function ($item) use ($queryVector) {
+                    $vector = json_decode($item->embedding, true);
+
+                    if (!is_array($vector)) {
+                        return null;
+                    }
+
+                    return [
+                        'title' => $item->title,
+                        'category' => $item->category,
+                        'source_type' => $item->source_type,
+                        'url' => $item->url,
+                        'content' => $this->cleanContent($item->content ?? ''),
+                        'semantic_score' => $this->embeddingService->cosineSimilarity($queryVector, $vector),
+                    ];
+                })
+                ->filter(fn($item) => $item && $item['semantic_score'] > 0.35)
+                ->sortByDesc('semantic_score')
+                ->take($limit)
+                ->map(function ($item) {
+                    unset($item['semantic_score']);
+                    return $item;
+                })
+                ->values()
+                ->toArray();
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    private function mergeKnowledgeResults(array $keywordResults, array $semanticResults, int $limit): array
+    {
+        $merged = [];
+
+        foreach (array_merge($keywordResults, $semanticResults) as $item) {
+            $key = ($item['url'] ?? '') ?: (($item['title'] ?? '') . '|' . ($item['category'] ?? ''));
+
+            if ($key === '' || isset($merged[$key])) {
+                continue;
+            }
+
+            $merged[$key] = $item;
+        }
+
+        return array_slice(array_values($merged), 0, $limit);
     }
 
     private function buildContext(array $majorResults, array $knowledgeResults): string
@@ -182,6 +262,8 @@ Tổ hợp xét tuyển: {$subjectGroups}
 Điểm ĐGNL: {$item['score_dgnl']}
 Chỉ tiêu: {$item['quota']}
 Học phí: {$item['tuition_fee']}
+Mô tả/chương trình: {$item['description']}
+Cơ hội việc làm: {$item['career_paths']}
 Nguồn: {$item['source_url']}
 -------------------------
 ";
@@ -234,11 +316,10 @@ Nội dung: {$content}
             'là', 'và', 'của', 'cho', 'về', 'ở', 'tôi', 'em', 'anh', 'chị',
             'bạn', 'bao', 'nhiêu', 'ngành', 'trường', 'đại', 'học',
             'tây', 'nguyên', 'không', 'ạ', 'ơi', 'lấy', 'nào', 'gì',
-            'có', 'thì', 'được', 'muốn', 'hỏi', 'những', 'các'
+            'có', 'thì', 'được', 'muốn', 'hỏi', 'những', 'các',
         ];
 
         $words = preg_split('/\s+/u', $text, -1, PREG_SPLIT_NO_EMPTY);
-
         $keywords = [];
 
         foreach ($words as $word) {
@@ -256,6 +337,67 @@ Nội dung: {$content}
         }
 
         return array_values(array_unique($keywords));
+    }
+
+    private function buildRelevanceScore(array $keywords, array $analysis): array
+    {
+        $scoreParts = [];
+        $bindings = [];
+
+        foreach (array_slice($keywords, 0, 8) as $keyword) {
+            $like = '%' . $keyword . '%';
+
+            $scoreParts[] = 'CASE WHEN title LIKE ? THEN 10 ELSE 0 END';
+            $bindings[] = $like;
+
+            $scoreParts[] = 'CASE WHEN content LIKE ? THEN 3 ELSE 0 END';
+            $bindings[] = $like;
+        }
+
+        if (!empty($analysis['major'])) {
+            $majorLike = '%' . $analysis['major'] . '%';
+
+            $scoreParts[] = 'CASE WHEN title LIKE ? THEN 20 ELSE 0 END';
+            $bindings[] = $majorLike;
+
+            $scoreParts[] = 'CASE WHEN content LIKE ? THEN 6 ELSE 0 END';
+            $bindings[] = $majorLike;
+        }
+
+        if (!empty($analysis['category'])) {
+            $scoreParts[] = 'CASE WHEN category = ? THEN 8 ELSE 0 END';
+            $bindings[] = $analysis['category'];
+        }
+
+        if (empty($scoreParts)) {
+            return ['0', []];
+        }
+
+        return ['(' . implode(' + ', $scoreParts) . ')', $bindings];
+    }
+
+    private function sourceTypeForIntent(?string $intent): ?string
+    {
+        return [
+            'hoc_phi' => 'hoc_phi',
+            'hoc_bong' => 'hoc_bong',
+            'diem_chuan' => 'diem_chuan',
+            'ho_so' => 'ho_so',
+            'co_hoi_viec_lam' => 'viec_lam',
+            'chuong_trinh_dao_tao' => 'chuong_trinh_dao_tao',
+            'ky_tuc_xa' => 'ky_tuc_xa',
+            'nganh_dao_tao' => 'nganh_dao_tao',
+        ][$intent] ?? null;
+    }
+
+    private function normalizeSearchText(string $text): string
+    {
+        $text = mb_strtolower(trim($text), 'UTF-8');
+        $text = Str::ascii($text);
+        $text = preg_replace('/[^a-z0-9\s]+/u', ' ', $text);
+        $text = preg_replace('/\s+/', ' ', $text);
+
+        return trim($text);
     }
 
     private function normalizeSubjectGroups($value): array
@@ -289,5 +431,32 @@ Nội dung: {$content}
         $content = preg_replace('/\s+/', ' ', $content);
 
         return trim($content);
+    }
+
+    private function buildSources(array $majorResults, array $knowledgeResults): array
+    {
+        $sources = [];
+
+        foreach ($majorResults as $item) {
+            $sources[] = [
+                'type' => 'admission_major',
+                'title' => trim(($item['major_name'] ?? '') . ' ' . ($item['year'] ?? '')),
+                'url' => $item['source_url'] ?? null,
+            ];
+        }
+
+        foreach ($knowledgeResults as $item) {
+            $sources[] = [
+                'type' => $item['source_type'] ?? 'knowledge_base',
+                'title' => $item['title'] ?? null,
+                'url' => $item['url'] ?? null,
+            ];
+        }
+
+        return collect($sources)
+            ->filter(fn($source) => !empty($source['title']) || !empty($source['url']))
+            ->unique(fn($source) => ($source['type'] ?? '') . '|' . ($source['title'] ?? '') . '|' . ($source['url'] ?? ''))
+            ->values()
+            ->toArray();
     }
 }

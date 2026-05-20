@@ -4,70 +4,55 @@ import './Header.css';
 function Header() {
   return (
     <header className="chatbot-header">
-
-      {/* LEFT */}
       <div className="header-left">
-
-        {/* NAV */}
-        <div className="nav-box">
-
-          {/* BACK */}
+        <div className="nav-box" aria-label="Điều hướng">
           <button
             className="icon-btn"
+            type="button"
             onClick={() => window.history.back()}
+            aria-label="Quay lại"
+            title="Quay lại"
           >
-            <i className="fa fa-arrow-left"></i>
+            <i className="fa fa-arrow-left" aria-hidden="true"></i>
           </button>
 
-          {/* HOME */}
           <a
             href="https://tuyensinh.ttn.edu.vn/"
             className="icon-btn"
+            aria-label="Trang chủ tuyển sinh"
+            title="Trang chủ tuyển sinh"
           >
-            <i className="fa fa-home"></i>
+            <i className="fa fa-home" aria-hidden="true"></i>
           </a>
         </div>
 
-        {/* LOGO */}
-        <img
-          src="/images/logo.png"
-          alt="logo"
-          className="header-logo"
-        />
+        <img src="/images/logo.png" alt="TNU" className="header-logo" />
 
-        {/* TITLE */}
-        <div>
-          <h3 className="header-title">
-            TNU ChatBot
-          </h3>
-
-          <span className="header-subtitle">
-            Hỗ trợ tư vấn 24/7
-          </span>
+        <div className="brand-copy">
+          <h3 className="header-title">TNU ChatBot</h3>
+          <span className="header-subtitle">Hỗ trợ tư vấn tuyển sinh 24/7</span>
         </div>
       </div>
 
-      {/* RIGHT */}
-      <div className="header-right">
+      <nav className="header-menu" aria-label="Liên kết nhanh">
+        <a
+          className="header-menu-btn active"
+          href="https://tuyensinh.ttn.edu.vn/"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Thông tin tuyển sinh
+        </a>
 
-        {/* LANGUAGE */}
-        <div className="language-box">
-
-          <button className="lang-btn active">
-            VI
-          </button>
-
-          <button className="lang-btn">
-            EN
-          </button>
-        </div>
-
-        {/* SOURCE */}
-        <button className="source-btn">
-          <i className="fa fa-book"></i>
-          <span>Nguồn</span>
-        </button>
-      </div>
+        <a
+          className="header-menu-btn"
+          href="https://tuyensinh.ttn.edu.vn/lien-he"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Liên hệ
+        </a>
+      </nav>
     </header>
   );
 }

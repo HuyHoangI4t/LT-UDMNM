@@ -37,10 +37,12 @@ class ChatLogController extends Controller
             ]
         )
     )]
-    public function index()
+    public function index(Request $request)
     {
+        $perPage = min(max((int) $request->query('per_page', 10), 1), 100);
+
         try {
-            $logs = ChatLog::orderBy('created_at', 'desc')->paginate(10);
+            $logs = ChatLog::orderBy('created_at', 'desc')->paginate($perPage);
 
             return response()->json([
                 'status' => 'success',

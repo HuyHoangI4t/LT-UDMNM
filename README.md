@@ -1,144 +1,100 @@
-# Laravel + React Full Stack Application
+# TNU Admission Chatbot
 
-Complete full-stack web application with Laravel backend and React frontend.
+Laravel + React application for an admission consulting chatbot. The backend stores crawled admission knowledge, normalizes major data, calls Gemini for answers, and records chat analytics. The frontend provides the chat UI for candidates.
 
 ## Project Structure
 
-```
-├── backend/          # Laravel API with Swagger
-├── frontend/         # React application
-└── README.md        # This file
+```text
+backend/   Laravel API, chatbot services, database migrations, import commands
+frontend/  React chat UI and crawled admission source files
+run.bat    Local setup/start helper for Windows
 ```
 
-## Quick Start
-
-### Backend Setup (Laravel + Swagger)
+## Backend
 
 ```bash
 cd backend
-
-# Install dependencies
 composer install
-
-# Copy environment file
 cp .env.example .env
-
-# Generate app key
 php artisan key:generate
-
-# Generate Swagger documentation
-php artisan l5-swagger:generate
-
-# Start server
-php artisan serve or composer dev
+php artisan migrate
+php artisan serve
 ```
 
-The API will be available at: **http://localhost:8000**
-Swagger docs at: **http://localhost:8000/api/documentation**
+Important environment variables:
 
-### Frontend Setup (React)
+```env
+GEMINI_API_KEY=
+GEMINI_MODEL=gemini-2.5-flash
+GEMINI_TIMEOUT=60
+GEMINI_TEMPERATURE=0.2
+GEMINI_TOP_P=0.8
+GEMINI_TOP_K=40
+
+AI_ENABLE_EMBEDDING_SEARCH=false
+GEMINI_EMBEDDING_MODEL=gemini-embedding-001
+
+ADMIN_API_AUTH=false
+```
+
+Useful commands:
+
+```bash
+php artisan knowledge:import ../frontend/src/ttn_data/ttn_all_data.json
+php artisan import:pdf-extracted ../frontend/src/ttn_data/pdf_extracted.json
+php artisan admission:majors-normalize --year=2026
+php artisan embedding:knowledge --limit=100
+php artisan faq:generate --limit=50
+php artisan test
+```
+
+## Frontend
 
 ```bash
 cd frontend
-
-# Install dependencies
 npm install
-
-# Start development server
 npm start
 ```
 
-The frontend will be available at: **http://localhost:3000**
+Optional frontend `.env`:
 
-## API Documentation
-
-### Available Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/health` | API health check |
-| GET | `/api/products` | Get all products |
-
-### Example API Response
-
-```json
-{
-  "data": [
-    { "id": 1, "name": "Product 1", "price": 100 },
-    { "id": 2, "name": "Product 2", "price": 200 }
-  ]
-}
+```env
+REACT_APP_API_URL=http://127.0.0.1:8000/api
 ```
 
-## Features
+## Main API
 
-### Backend
-- ✓ Laravel 10.x
-- ✓ Swagger/OpenAPI documentation
-- ✓ RESTful API structure
-- ✓ Eloquent ORM ready
-- ✓ Authentication ready (Sanctum)
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| GET | `/api/health` | Backend health check |
+| POST | `/api/chat` | Ask chatbot |
+| GET | `/api/faq-questions` | Suggested questions |
+| GET | `/api/chat-logs` | Chat logs |
+| GET | `/api/chat-logs/{id}` | Chat log detail |
+| DELETE | `/api/chat-logs/{id}` | Delete chat log |
+| GET | `/api/dashboard/overview` | Dashboard totals |
+| GET | `/api/dashboard/top-majors` | Most asked majors |
+| GET | `/api/dashboard/questions-by-intent` | Intent statistics |
+| GET | `/api/dashboard/questions-by-day` | Daily statistics |
 
-### Frontend
-- ✓ React 18.x
-- ✓ Axios for API calls
-- ✓ React Router setup
-- ✓ Modern UI with CSS
-- ✓ Responsive design
-- ✓ API health monitoring
+Set `ADMIN_API_AUTH=true` to protect chat log and dashboard routes with Sanctum.
 
-## Requirements
+## Chatbot Flow
 
-### Backend
-- PHP 8.0+
-- Composer
-- MySQL/MariaDB (optional)
+1. React sends `message`, `platform`, and recent `history` to `/api/chat`.
+2. Backend analyzes intent, major, year, and category.
+3. Backend retrieves context from `admission_majors` and `knowledge_bases`.
+4. Optional embedding search can add semantic matches when enabled.
+5. Gemini receives the system prompt, retrieved context, recent history, and user question.
+6. Backend stores the interaction in `chat_logs`.
+7. Frontend renders the answer and fetches related FAQ suggestions.
 
-### Frontend
-- Node.js 14+
-- npm or yarn
+## Database
 
-## Configuration
+Main tables:
 
-### Frontend API URL
+- `chat_logs`: conversation analytics and answers.
+- `knowledge_bases`: website/PDF knowledge chunks and optional embeddings.
+- `admission_majors`: normalized major data such as code, subject groups, scores, quota, tuition.
+- `faq_questions`: generated suggested questions.
 
-Update the API URL in [frontend/src/App.js](frontend/src/App.js):
-
-```javascript
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
-```
-
-Or create `.env` file:
-```
-REACT_APP_API_URL=http://localhost:8000/api
-```
-
-### Backend CORS
-
-Update Laravel CORS configuration in [backend/config/cors.php](backend/config/cors.php) if needed.
-
-## Development Workflow
-
-1. Start Laravel backend: `php artisan serve` (port 8000)
-2. Start React frontend: `npm start` (port 3000)
-3. Access app at http://localhost:3000
-4. API docs at http://localhost:8000/api/documentation
-
-## Next Steps
-
-1. **Database**: Configure database in `.env` and run migrations
-2. **Models**: Create Eloquent models in `app/Models/`
-3. **Controllers**: Create API controllers in `app/Http/Controllers/`
-4. **Components**: Add more React components in `frontend/src/components/`
-5. **Authentication**: Implement Laravel Sanctum authentication
-
-## Resources
-
-- [Laravel Documentation](https://laravel.com/docs)
-- [Swagger Documentation](https://swagger.io/docs/)
-- [React Documentation](https://react.dev)
-- [OpenAPI Specification](https://swagger.io/specification/)
-
-## License
-
-MIT

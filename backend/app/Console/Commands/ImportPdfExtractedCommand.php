@@ -45,6 +45,7 @@ class ImportPdfExtractedCommand extends Command
 
             foreach ($chunks as $chunkIndex => $chunk) {
                 $chunk = trim((string) $chunk);
+                $chunk = $this->redactSensitiveContent($chunk);
 
                 if (mb_strlen($chunk, 'UTF-8') < 80) {
                     $skipped++;
@@ -91,5 +92,16 @@ class ImportPdfExtractedCommand extends Command
         }
 
         return "{$year}-01-01 00:00:00";
+    }
+
+    private function redactSensitiveContent(string $content): string
+    {
+        $content = preg_replace('/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/iu', '[REDACTED_EMAIL]', $content);
+
+        // Mask Vietnamese phone numbers and long personal identifiers that can appear in PDF lists.
+        $content = preg_replace('/(?<!\d)(?:\+?84|0)(?:[\s.-]?\d){8,10}(?!\d)/u', '[REDACTED_PHONE]', $content);
+        $content = preg_replace('/(?<!\d)\d{9,12}(?!\d)/u', '[REDACTED_ID]', $content);
+
+        return $content;
     }
 }

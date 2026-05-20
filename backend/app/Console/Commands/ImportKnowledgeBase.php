@@ -55,6 +55,7 @@ class ImportKnowledgeBase extends Command
                         : ($item['content'] ?? ''),
 
                     'category' => $item['category'] ?? 'general',
+                    'source_type' => $item['source_type'] ?? ($item['category'] ?? 'general'),
 
                     'pdf_links' => $item['pdf_links'] ?? [],
                     'image_links' => $item['image_links'] ?? [],
