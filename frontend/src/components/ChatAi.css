@@ -304,6 +304,14 @@
     font-weight: 800;
 }
 
+.message-bubble p {
+    margin: 0 0 8px;
+}
+
+.message-bubble p:last-child {
+    margin-bottom: 0;
+}
+
 .message-row.user .message-bubble strong {
     color: #ffffff;
 }
@@ -323,8 +331,112 @@
     margin: 8px 0;
 }
 
+.message-bubble ol {
+    padding-left: 20px;
+    margin: 8px 0;
+}
+
 .message-bubble li {
     margin-bottom: 5px;
+}
+
+.message-bubble table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 8px 0;
+    display: block;
+    overflow-x: auto;
+}
+
+.message-bubble th,
+.message-bubble td {
+    border: 1px solid #cbd5e1;
+    padding: 6px 8px;
+    text-align: left;
+}
+
+.message-bubble code {
+    padding: 2px 5px;
+    border-radius: 6px;
+    background: #f1f5f9;
+    color: #0f172a;
+}
+
+.error-bubble {
+    border-color: #fecaca;
+    background: #fff7f7;
+}
+
+.retry-btn {
+    margin-top: 10px;
+    min-height: 34px;
+    padding: 0 10px;
+    border: 1px solid #bfdbfe;
+    border-radius: 9px;
+    background: #ffffff;
+    color: #1d4ed8;
+    font-size: 13px;
+    font-weight: 800;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.retry-btn:hover:not(:disabled) {
+    background: #eff6ff;
+}
+
+.retry-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+.source-list {
+    margin-top: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.source-pill {
+    min-width: 0;
+    max-width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #dbeafe;
+    border-radius: 10px;
+    background: #f8fbff;
+    color: #0f172a;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.source-pill:hover {
+    border-color: #93c5fd;
+    background: #eff6ff;
+}
+
+.source-label {
+    flex-shrink: 0;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: #dbeafe;
+    color: #1d4ed8;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.source-title {
+    min-width: 0;
+    color: #334155;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.35;
+    word-break: break-word;
 }
 
 .message-bubble br {

@@ -34,8 +34,16 @@ GEMINI_TOP_K=40
 AI_ENABLE_EMBEDDING_SEARCH=false
 GEMINI_EMBEDDING_MODEL=gemini-embedding-001
 
-ADMIN_API_AUTH=false
+ADMIN_API_AUTH=true
 ```
+
+Production PHP extensions checklist:
+
+```text
+intl, mbstring, openssl, pdo_mysql, tokenizer, xml, ctype, json, fileinfo
+```
+
+Keep `APP_DEBUG=false` and `ADMIN_API_AUTH=true` in production. Dashboard, chat log, and export routes are admin surfaces and should not be public.
 
 Useful commands:
 
@@ -47,6 +55,14 @@ php artisan embedding:knowledge --limit=100
 php artisan faq:generate --limit=50
 php artisan test
 ```
+
+If `admission_majors.subject_groups` was imported before the normalization fix and contains nested JSON strings, rerun:
+
+```bash
+php artisan admission:majors-normalize --year=2025
+```
+
+Use the correct year for the current dataset. Multi-year score answers require importing one normalized dataset per admission year.
 
 ## Frontend
 
@@ -84,7 +100,7 @@ Set `ADMIN_API_AUTH=true` to protect chat log and dashboard routes with Sanctum.
 1. React sends `message`, `platform`, and recent `history` to `/api/chat`.
 2. Backend analyzes intent, major, year, and category.
 3. Backend retrieves context from `admission_majors` and `knowledge_bases`.
-4. Optional embedding search can add semantic matches when enabled.
+4. Optional embedding search can add semantic matches when enabled. The current local mode prefilters rows before cosine scoring in PHP; use Qdrant, FAISS, pgvector, or another indexed vector store before scaling beyond small/medium datasets.
 5. Gemini receives the system prompt, retrieved context, recent history, and user question.
 6. Backend stores the interaction in `chat_logs`.
 7. Frontend renders the answer and fetches related FAQ suggestions.
@@ -97,4 +113,3 @@ Main tables:
 - `knowledge_bases`: website/PDF knowledge chunks and optional embeddings.
 - `admission_majors`: normalized major data such as code, subject groups, scores, quota, tuition.
 - `faq_questions`: generated suggested questions.
-

@@ -45,24 +45,24 @@ class ImportKnowledgeBase extends Command
 
             $existing = KnowledgeBase::where('url', $url)->first();
 
-            KnowledgeBase::updateOrCreate(
-                ['url' => $url],
-                [
-                    'title' => $item['title'] ?? 'Không có tiêu đề',
+            $content = is_array($item['content'] ?? null)
+                ? json_encode($item['content'], JSON_UNESCAPED_UNICODE)
+                : ($item['content'] ?? '');
 
-                    'content' => is_array($item['content'] ?? null)
-                        ? json_encode($item['content'], JSON_UNESCAPED_UNICODE)
-                        : ($item['content'] ?? ''),
+            $payload = [
+                'title' => $item['title'] ?? 'Không có tiêu đề',
+                'content' => $content,
+                'category' => $item['category'] ?? 'general',
+                'source_type' => $item['source_type'] ?? ($item['category'] ?? 'general'),
+                'pdf_links' => $item['pdf_links'] ?? [],
+                'image_links' => $item['image_links'] ?? [],
+            ];
 
-                    'category' => $item['category'] ?? 'general',
-                    'source_type' => $item['source_type'] ?? ($item['category'] ?? 'general'),
+            if (!$existing || (string) $existing->content !== (string) $content) {
+                $payload['embedding'] = null;
+            }
 
-                    'pdf_links' => $item['pdf_links'] ?? [],
-                    'image_links' => $item['image_links'] ?? [],
-
-                    'embedding' => null,
-                ]
-            );
+            KnowledgeBase::updateOrCreate(['url' => $url], $payload);
 
             if ($existing) {
                 $updated++;

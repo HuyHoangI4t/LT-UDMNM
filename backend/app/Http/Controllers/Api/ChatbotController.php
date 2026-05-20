@@ -110,7 +110,7 @@ class ChatbotController extends Controller
                     'session_id' => $sessionId,
                     'reply' => 'Xin lỗi, hiện tại hệ thống chưa xử lý được câu hỏi này. Bạn thử hỏi lại rõ hơn giúp mình nhé.',
                 ],
-            ], 200);
+            ], 503);
         }
     }
 

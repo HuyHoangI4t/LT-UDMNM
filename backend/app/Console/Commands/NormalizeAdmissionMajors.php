@@ -46,7 +46,7 @@ class NormalizeAdmissionMajors extends Command
                 ],
                 [
                     'major_name' => $majorName,
-                    'subject_groups' => json_encode($subjectGroups, JSON_UNESCAPED_UNICODE),
+                    'subject_groups' => $subjectGroups,
                     'description' => $description,
                     'career_paths' => $careerPaths,
                     'source_url' => $item->url,

@@ -55,7 +55,9 @@ YÊU CẦU TRẢ LỜI:
 - Nếu có nguồn thì nhắc người dùng kiểm tra thêm ở website tuyển sinh chính thức.
 ";
 
-        return $this->askGemini($systemPrompt, $finalPrompt);
+        $answer = $this->askGemini($systemPrompt, $finalPrompt);
+
+        return $this->guardAgainstUnsupportedClaims($answer, $context);
     }
 
     public function askGemini(string $systemPrompt, string $finalPrompt): string
@@ -153,5 +155,32 @@ Quy tắc bắt buộc:
             })
             ->filter()
             ->implode("\n");
+    }
+
+    private function guardAgainstUnsupportedClaims(string $answer, string $context): string
+    {
+        if (str_contains($context, 'Không tìm thấy dữ liệu phù hợp')) {
+            return $answer;
+        }
+
+        $claimPatterns = [
+            '/\b\d{1,2}(?:[,.]\d{1,2})?\s*điểm\b/iu',
+            '/\b\d{2,4}\s*chỉ\s*tiêu\b/iu',
+            '/\b\d{1,3}(?:[,.]\d{3})*\s*(?:đồng|vnđ|vnd|triệu)\b/iu',
+        ];
+
+        foreach ($claimPatterns as $pattern) {
+            if (!preg_match_all($pattern, $answer, $matches)) {
+                continue;
+            }
+
+            foreach ($matches[0] as $claim) {
+                if (!str_contains(mb_strtolower($context, 'UTF-8'), mb_strtolower($claim, 'UTF-8'))) {
+                    return 'Hiện hệ thống chưa có dữ liệu chính xác để khẳng định con số này. Bạn vui lòng đối chiếu trên website tuyển sinh chính thức của trường hoặc hỏi rõ hơn theo ngành/năm/phương thức xét tuyển.';
+                }
+            }
+        }
+
+        return $answer;
     }
 }

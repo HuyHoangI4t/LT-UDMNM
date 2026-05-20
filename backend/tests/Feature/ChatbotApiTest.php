@@ -60,6 +60,25 @@ class ChatbotApiTest extends TestCase
         $response->assertUnprocessable();
     }
 
+    public function test_chat_endpoint_returns_503_when_ai_service_fails(): void
+    {
+        $this->app->instance(AiChatService::class, new class extends AiChatService {
+            public function getAnswer(string $userMessage, array $knowledge = [], array $analysis = [], array $history = []): string
+            {
+                throw new \Exception('AI unavailable');
+            }
+        });
+
+        $response = $this->postJson('/api/chat', [
+            'message' => 'Điểm chuẩn ngành Công nghệ thông tin?',
+            'platform' => 'web',
+        ]);
+
+        $response
+            ->assertStatus(503)
+            ->assertJsonPath('status', 'error');
+    }
+
     public function test_faq_questions_are_ranked_and_limited(): void
     {
         $knowledge = KnowledgeBase::create([

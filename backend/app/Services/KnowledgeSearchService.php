@@ -19,7 +19,7 @@ class KnowledgeSearchService
 
         $majorResults = $this->searchAdmissionMajors($analysis, $limit);
         $keywordResults = $this->searchKnowledgeBase($question, $analysis, $limit);
-        $semanticResults = $this->searchByEmbedding($question, $limit);
+        $semanticResults = $this->searchByEmbedding($question, $limit, $analysis);
         $knowledgeResults = $this->mergeKnowledgeResults($keywordResults, $semanticResults, $limit);
 
         return [
@@ -118,19 +118,8 @@ class KnowledgeSearchService
             return [];
         }
 
-        $query = KnowledgeBase::query();
-
-        if (!empty($analysis['category'])) {
-            $query->where(function ($sub) use ($analysis) {
-                $sub->where('category', $analysis['category'])
-                    ->orWhere('source_type', $analysis['category']);
-            });
-        }
-
         $sourceType = $this->sourceTypeForIntent($analysis['intent'] ?? null);
-        if ($sourceType) {
-            $query->orWhere('source_type', $sourceType);
-        }
+        $query = KnowledgeBase::query();
 
         $query->where(function ($q) use ($keywords) {
             foreach ($keywords as $keyword) {
@@ -138,6 +127,19 @@ class KnowledgeSearchService
                     ->orWhere('content', 'like', '%' . $keyword . '%');
             }
         });
+
+        if (!empty($analysis['category']) || $sourceType) {
+            $query->where(function ($sub) use ($analysis, $sourceType) {
+                if (!empty($analysis['category'])) {
+                    $sub->orWhere('category', $analysis['category'])
+                        ->orWhere('source_type', $analysis['category']);
+                }
+
+                if ($sourceType) {
+                    $sub->orWhere('source_type', $sourceType);
+                }
+            });
+        }
 
         [$scoreSql, $scoreBindings] = $this->buildRelevanceScore($keywords, $analysis);
 
@@ -174,7 +176,7 @@ class KnowledgeSearchService
         })->toArray();
     }
 
-    private function searchByEmbedding(string $question, int $limit): array
+    private function searchByEmbedding(string $question, int $limit, array $analysis = []): array
     {
         if (!filter_var(env('AI_ENABLE_EMBEDDING_SEARCH', false), FILTER_VALIDATE_BOOLEAN)) {
             return [];
@@ -187,9 +189,26 @@ class KnowledgeSearchService
                 return [];
             }
 
-            return KnowledgeBase::query()
+            $query = KnowledgeBase::query()
                 ->whereNotNull('embedding')
-                ->where('embedding', '!=', '')
+                ->where('embedding', '!=', '');
+
+            $sourceType = $this->sourceTypeForIntent($analysis['intent'] ?? null);
+
+            if (!empty($analysis['category']) || $sourceType) {
+                $query->where(function ($sub) use ($analysis, $sourceType) {
+                    if (!empty($analysis['category'])) {
+                        $sub->orWhere('category', $analysis['category'])
+                            ->orWhere('source_type', $analysis['category']);
+                    }
+
+                    if ($sourceType) {
+                        $sub->orWhere('source_type', $sourceType);
+                    }
+                });
+            }
+
+            return $query
                 ->latest()
                 ->limit(200)
                 ->get()

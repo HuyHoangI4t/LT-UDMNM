@@ -15,7 +15,7 @@ Route::get('/health', function () {
 Route::post('/chat', [ChatbotController::class, 'chat'])->middleware('throttle:30,1');
 Route::get('/faq-questions', [ChatbotController::class, 'faqQuestions'])->middleware('throttle:60,1');
 
-$adminMiddleware = filter_var(env('ADMIN_API_AUTH', false), FILTER_VALIDATE_BOOLEAN)
+$adminMiddleware = filter_var(env('ADMIN_API_AUTH', true), FILTER_VALIDATE_BOOLEAN)
     ? ['auth:sanctum']
     : [];
 

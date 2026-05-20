@@ -1,5 +1,7 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import './ChatAi.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:8000/api';
@@ -66,37 +68,6 @@ const formatSessionTitle = (text) => {
   return trimmed.length <= 45 ? trimmed : `${trimmed.slice(0, 45).trim()}...`;
 };
 
-const escapeHtml = (text) =>
-  text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-
-const formatMessage = (text) => {
-  if (!text) return '';
-
-  let formatted = escapeHtml(text.trim());
-
-  formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-  formatted = formatted.replace(
-    /(https?:\/\/[^\s<]+)/g,
-    '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
-  );
-  formatted = formatted.replace(/^\s*[•-]\s+(.+)$/gm, '<li>$1</li>');
-  formatted = formatted.replace(/(<li>.*?<\/li>)(\s*<br\/?>\s*<li>.*?<\/li>)*/gs, (match) => {
-    const clean = match.replace(/<br\/?>/g, '');
-    return `<ul>${clean}</ul>`;
-  });
-  formatted = formatted
-    .replace(/\n{3,}/g, '\n\n')
-    .replace(/\n\n/g, '<div class="msg-gap"></div>')
-    .replace(/\n/g, '<br/>');
-
-  return formatted;
-};
-
 const getGreeting = () => {
   const hour = new Date().getHours();
 
@@ -123,6 +94,10 @@ const ChatAi = () => {
   const [suggestedPage, setSuggestedPage] = useState(0);
   const greeting = getGreeting();
   const messagesContainerRef = useRef(null);
+  const recognitionRef = useRef(null);
+  const activeRequestRef = useRef(null);
+  const sendLockRef = useRef(false);
+  const mountedRef = useRef(true);
   const suggestedPageSize = 3;
 
   const currentSession = useMemo(
@@ -154,6 +129,14 @@ const ChatAi = () => {
   }, [selectedSessionId]);
 
   useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+      recognitionRef.current?.abort?.();
+      activeRequestRef.current?.abort?.();
+    };
+  }, []);
+
+  useEffect(() => {
     if (lastMessage?.role === 'ai' && messagesContainerRef.current) {
       const container = messagesContainerRef.current;
 
@@ -168,9 +151,17 @@ const ChatAi = () => {
     [message, loading]
   );
 
-  const updateSession = (sessionId, nextSession) => {
+  const updateSession = (sessionId, nextSessionOrUpdater) => {
     setSessions((prev) =>
-      prev.map((session) => (session.id === sessionId ? nextSession : session))
+      prev.map((session) => {
+        if (session.id !== sessionId) {
+          return session;
+        }
+
+        return typeof nextSessionOrUpdater === 'function'
+          ? nextSessionOrUpdater(session)
+          : nextSessionOrUpdater;
+      })
     );
   };
 
@@ -202,7 +193,10 @@ const ChatAi = () => {
       return;
     }
 
+    recognitionRef.current?.abort?.();
+
     const recognition = new SpeechRecognition();
+    recognitionRef.current = recognition;
 
     recognition.lang = 'vi-VN';
     recognition.interimResults = false;
@@ -222,13 +216,15 @@ const ChatAi = () => {
 
     recognition.onend = () => {
       setIsListening(false);
+      recognitionRef.current = null;
     };
   };
 
   const handleSend = async (customMessage) => {
     const text = (customMessage ?? message).trim();
 
-    if (!text || loading) return;
+    if (!text || loading || sendLockRef.current) return;
+    sendLockRef.current = true;
 
     const sessionId = currentSession.id;
 
@@ -248,6 +244,9 @@ const ChatAi = () => {
 
     setMessage('');
     setLoading(true);
+    activeRequestRef.current?.abort?.();
+    const controller = new AbortController();
+    activeRequestRef.current = controller;
 
     try {
       const response = await axios.post(
@@ -262,6 +261,7 @@ const ChatAi = () => {
             'X-Session-ID': sessionId,
           },
           timeout: CHAT_TIMEOUT_MS,
+          signal: controller.signal,
         }
       );
 
@@ -271,19 +271,21 @@ const ChatAi = () => {
 
       const reply =
         response?.data?.data?.reply || 'Mình chưa nhận được phản hồi phù hợp.';
+      const sources = response?.data?.data?.rag?.sources || [];
 
-      const aiMessage = { role: 'ai', text: reply };
+      const aiMessage = { role: 'ai', text: reply, sources };
 
-      updateSession(sessionId, {
-        ...currentSession,
+      updateSession(sessionId, (session) => ({
+        ...session,
         title: newTitle,
         messages: [...nextMessages, aiMessage],
-      });
+      }));
 
       try {
         const q = encodeURIComponent(text);
         const resp = await axios.get(`${API_URL}/faq-questions?q=${q}`, {
           timeout: FAQ_TIMEOUT_MS,
+          signal: controller.signal,
         });
         const qs = resp?.data?.data || [];
 
@@ -300,21 +302,68 @@ const ChatAi = () => {
         setSuggestedQuestions([]);
       }
     } catch (error) {
+      if (axios.isCancel(error) || error?.code === 'ERR_CANCELED') {
+        return;
+      }
+
       console.error('Chat error:', error);
 
       const aiMessage = {
         role: 'ai',
         text: 'Không thể kết nối chatbot lúc này. Vui lòng thử lại.',
+        error: true,
+        retryText: text,
       };
 
-      updateSession(sessionId, {
-        ...currentSession,
+      updateSession(sessionId, (session) => ({
+        ...session,
         title: newTitle,
         messages: [...nextMessages, aiMessage],
-      });
+      }));
     } finally {
-      setLoading(false);
+      if (activeRequestRef.current === controller) {
+        activeRequestRef.current = null;
+      }
+      sendLockRef.current = false;
+      if (mountedRef.current) {
+        setLoading(false);
+      }
     }
+  };
+
+  const renderMessageText = (text) => (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        a: ({ href, children }) => {
+          const safeHref = typeof href === 'string' && /^https?:\/\//i.test(href) ? href : undefined;
+
+          return safeHref ? (
+            <a href={safeHref} target="_blank" rel="noopener noreferrer">
+              {children}
+            </a>
+          ) : (
+            <span>{children}</span>
+          );
+        },
+      }}
+    >
+      {text || ''}
+    </ReactMarkdown>
+  );
+
+  const renderSourceLabel = (source) => {
+    if (!source) return 'Nguồn';
+
+    if (source.type === 'admission_major') {
+      return 'Ngành tuyển sinh';
+    }
+
+    if (source.type && source.type !== 'knowledge_base') {
+      return source.type.replace(/_/g, ' ');
+    }
+
+    return 'Tri thức website';
   };
 
   return (
@@ -408,12 +457,47 @@ const ChatAi = () => {
                     <i className="bi bi-stars"></i>
                   )}
                 </div>
-                <div
-                  className="message-bubble"
-                  dangerouslySetInnerHTML={{
-                    __html: formatMessage(item.text),
-                  }}
-                />
+                <div className={`message-bubble ${item.error ? 'error-bubble' : ''}`}>
+                  {renderMessageText(item.text)}
+                  {item.retryText && (
+                    <button
+                      className="retry-btn"
+                      type="button"
+                      disabled={loading}
+                      onClick={() => handleSend(item.retryText)}
+                    >
+                      <i className="bi bi-arrow-clockwise" aria-hidden="true"></i>
+                      <span>Thử lại</span>
+                    </button>
+                  )}
+                  {item.role === 'ai' && Array.isArray(item.sources) && item.sources.length > 0 && (
+                    <div className="source-list" aria-label="Nguồn tham khảo">
+                      {item.sources.slice(0, 4).map((source, idx) => {
+                        const label = renderSourceLabel(source);
+                        const title = source?.title || source?.url || 'Nguồn tham khảo';
+
+                        return source?.url ? (
+                          <a
+                            key={`${title}-${idx}`}
+                            className="source-pill"
+                            href={source.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title={title}
+                          >
+                            <span className="source-label">{label}</span>
+                            <span className="source-title">{title}</span>
+                          </a>
+                        ) : (
+                          <span key={`${title}-${idx}`} className="source-pill" title={title}>
+                            <span className="source-label">{label}</span>
+                            <span className="source-title">{title}</span>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
 
