@@ -12,12 +12,32 @@ const FAQ_TIMEOUT_MS = 15000;
 
 const defaultMessage = 'Mình có thể giúp gì cho bạn?';
 
-const starterQuestions = [
+const fallbackStarterQuestions = [
   'Tra cứu ngành Công nghệ thông tin',
   'Tư vấn chọn ngành theo sở thích của em',
   'Điểm chuẩn ngành Kế toán các năm gần đây',
   'Học phí và học bổng của trường',
 ];
+
+const normalizeFaqQuestions = (items, limit = 12) => {
+  const seen = new Set();
+
+  return (Array.isArray(items) ? items : [])
+    .map((item) => (typeof item === 'string' ? item : item?.question || ''))
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .filter((item) => {
+      const key = item.toLocaleLowerCase('vi-VN');
+
+      if (seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
+    })
+    .slice(0, limit);
+};
 
 const capabilityGroups = [
   {
@@ -107,6 +127,7 @@ const ChatAi = () => {
   const [loading, setLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [copiedMessageId, setCopiedMessageId] = useState('');
+  const [starterQuestions, setStarterQuestions] = useState(fallbackStarterQuestions);
   const [suggestedQuestions, setSuggestedQuestions] = useState([]);
   const [suggestedPage, setSuggestedPage] = useState(0);
   const messagesContainerRef = useRef(null);
@@ -145,6 +166,34 @@ const ChatAi = () => {
       recognitionRef.current?.abort?.();
       activeRequestRef.current?.abort?.();
     };
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    axios.get(`${API_URL}/faq-questions`, {
+      params: { limit: 4 },
+      timeout: FAQ_TIMEOUT_MS,
+      signal: controller.signal,
+    })
+      .then((resp) => {
+        if (!mountedRef.current) return;
+
+        const questions = normalizeFaqQuestions(resp?.data?.data, 4);
+        setStarterQuestions(questions.length ? questions : fallbackStarterQuestions);
+      })
+      .catch((err) => {
+        if (axios.isCancel(err) || err?.code === 'ERR_CANCELED') {
+          return;
+        }
+
+        console.warn('Không lấy được FAQ ban đầu.', err);
+        if (mountedRef.current) {
+          setStarterQuestions(fallbackStarterQuestions);
+        }
+      });
+
+    return () => controller.abort();
   }, []);
 
   useEffect(() => {
@@ -266,6 +315,8 @@ const ChatAi = () => {
     });
 
     setMessage('');
+    setSuggestedQuestions([]);
+    setSuggestedPage(0);
     setLoading(true);
     activeRequestRef.current?.abort?.();
     const controller = new AbortController();
@@ -315,12 +366,10 @@ const ChatAi = () => {
         .then((resp) => {
           if (!mountedRef.current) return;
 
-          const qs = resp?.data?.data || [];
+          const qs = normalizeFaqQuestions(resp?.data?.data);
 
           if (qs.length) {
-            setSuggestedQuestions(
-              qs.map((item) => (typeof item === 'string' ? item : item.question || ''))
-            );
+            setSuggestedQuestions(qs);
             setSuggestedPage(0);
           } else {
             setSuggestedQuestions([]);
