@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\ChatLog;
 use App\Models\FaqQuestion;
 use App\Models\KnowledgeBase;
 use App\Services\AiChatService;
@@ -109,5 +110,49 @@ class ChatbotApiTest extends TestCase
             ->assertJsonPath('status', 'success')
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.question', 'Học phí ngành Công nghệ thông tin là bao nhiêu?');
+    }
+
+    public function test_faq_questions_follow_latest_chat_log_major_name(): void
+    {
+        $knowledge = KnowledgeBase::create([
+            'category' => 'nganh_dao_tao',
+            'source_type' => 'nganh_dao_tao',
+            'title' => 'Ngành Công nghệ thông tin',
+            'content' => 'Thông tin xét tuyển ngành Công nghệ thông tin.',
+            'url' => 'https://example.test/cntt',
+        ]);
+
+        ChatLog::create([
+            'session_id' => 'session-major-suggestion',
+            'platform' => 'web',
+            'user_query' => 'Tư vấn ngành CNTT',
+            'bot_response' => 'Thông tin ngành Công nghệ thông tin',
+            'intent' => 'nganh_dao_tao',
+            'major_name' => 'Công nghệ thông tin',
+        ]);
+
+        FaqQuestion::create([
+            'question' => 'Học phí ngành Công nghệ thông tin là bao nhiêu?',
+            'category' => 'hoc_phi',
+            'knowledge_base_id' => $knowledge->id,
+        ]);
+
+        FaqQuestion::create([
+            'question' => 'Học phí ngành Kế toán là bao nhiêu?',
+            'category' => 'hoc_phi',
+            'knowledge_base_id' => null,
+        ]);
+
+        $response = $this->getJson('/api/faq-questions?session_id=session-major-suggestion&limit=4');
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('status', 'success')
+            ->assertJsonCount(4, 'data')
+            ->assertJsonPath('data.0.question', 'Học phí ngành Công nghệ thông tin là bao nhiêu?');
+
+        foreach ($response->json('data') as $item) {
+            $this->assertStringContainsString('Công nghệ thông tin', $item['question']);
+        }
     }
 }

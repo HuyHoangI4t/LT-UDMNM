@@ -1,0 +1,642 @@
+HƯỚNG DẪN DỰ ÁN CHATBOT TUYỂN SINH TNU
+======================================
+
+1. GIỚI THIỆU DỰ ÁN
+-------------------
+Dự án là hệ thống chatbot tư vấn tuyển sinh cho Trường Đại học Tây Nguyên.
+
+Hệ thống gồm:
+- Frontend React: giao diện chat cho thí sinh/người dùng.
+- Backend Laravel API: xử lý chat, tìm kiếm dữ liệu tuyển sinh, gọi AI Gemini, lưu lịch sử chat và thống kê dashboard.
+- Database: lưu dữ liệu ngành tuyển sinh, tri thức từ website/PDF, câu hỏi gợi ý, lịch sử chat.
+
+Thư mục chính:
+- backend/: Laravel API, service AI, migration, command import dữ liệu.
+- frontend/: React chat UI.
+- run.bat: file hỗ trợ chạy local trên Windows.
+- README.md: hướng dẫn ngắn gọn sẵn có.
+
+
+2. CÁC CHỨC NĂNG CHÍNH
+----------------------
+2.1. Phía người dùng
+- Chat hỏi đáp tuyển sinh với chatbot AI.
+- Hỏi về ngành đào tạo, mã ngành, tổ hợp xét tuyển, điểm chuẩn, chỉ tiêu, học phí.
+- Tư vấn chọn ngành theo sở thích, năng lực, định hướng nghề nghiệp.
+- Gửi câu hỏi nhanh từ danh sách gợi ý.
+- Nhập câu hỏi bằng giọng nói nếu trình duyệt hỗ trợ SpeechRecognition.
+- Hiển thị câu trả lời Markdown: danh sách, bảng, liên kết.
+- Lưu lịch sử chat vào localStorage, reload trang vẫn giữ được phiên chat.
+- Tạo cuộc trò chuyện mới.
+- Hiện giờ bên dưới từng tin nhắn.
+- Sao chép nội dung tin nhắn.
+- Với tin nhắn chatbot: có nút gửi lại, like, dislike.
+- Hiện trạng thái "Đang suy nghĩ ..." khi chatbot đang xử lý.
+- Gợi ý câu hỏi liên quan đến major_name mới nhất trong bảng chat_logs của session hiện tại.
+
+2.2. Phía chatbot/backend
+- Phân tích câu hỏi để nhận diện:
+  + intent: diem_chuan, hoc_phi, to_hop, chi_tieu, ma_nganh, co_hoi_viec_lam, chuong_trinh_dao_tao, hoc_bong, ky_tuc_xa, ho_so, tu_van_nganh, nganh_dao_tao, general.
+  + major_name: tên ngành như Công nghệ thông tin, Kế toán, Y khoa...
+  + admission_year: năm tuyển sinh.
+  + admission_method: thpt, hoc_ba, dgnl, tuyen_thang, ket_hop.
+  + score: điểm của thí sinh nếu có.
+  + province: tỉnh/thành nếu có.
+- Truy xuất dữ liệu từ bảng admission_majors và knowledge_bases.
+- Có tùy chọn semantic search bằng embedding nếu bật cấu hình.
+- Gọi Gemini để sinh câu trả lời.
+- Có fallback trả lời từ dữ liệu đã truy xuất nếu AI lỗi.
+- Cache câu trả lời để giảm gọi API AI.
+- Lưu chat vào bảng chat_logs để làm thống kê.
+
+2.3. Quản trị và dashboard
+- Đăng nhập admin bằng Laravel Sanctum.
+- Xem thông tin admin hiện tại.
+- Đăng xuất.
+- Đăng ký admin mới.
+- Quản lý chat logs: danh sách, chi tiết, xóa, import bulk.
+- Quản lý knowledge_bases: CRUD dữ liệu tri thức.
+- Quản lý admission_majors: CRUD dữ liệu ngành tuyển sinh.
+- Dashboard:
+  + Tổng số câu hỏi.
+  + Câu hỏi hôm nay.
+  + Số session đang hoạt động.
+  + Thời gian phản hồi trung bình.
+  + Intent được hỏi nhiều nhất.
+  + Top ngành được hỏi.
+  + Hot majors.
+  + Thống kê câu hỏi theo intent.
+  + Thống kê theo ngày/tuần/tháng.
+  + Heatmap tỉnh/thành.
+  + Thống kê phương thức xét tuyển.
+  + Thống kê theo platform.
+  + Xu hướng 30 ngày.
+  + Realtime logs.
+  + Export CSV báo cáo.
+
+
+3. CÔNG NGHỆ SỬ DỤNG
+--------------------
+3.1. Backend
+- PHP >= 8.2.
+- Laravel Framework 12.
+- Laravel Sanctum: xác thực admin/API token.
+- L5 Swagger: tài liệu API.
+- OpenAI PHP Laravel package: package AI có sẵn trong project, tuy nhiên flow hiện tại dùng cấu hình Gemini.
+- Smalot PDF Parser: xử lý PDF.
+- Symfony DomCrawler và CSS Selector: crawl/parse nội dung web.
+- PHPUnit: test backend.
+- MySQL hoặc SQLite tùy cấu hình .env.
+
+3.2. Frontend
+- React 18.
+- React Router DOM.
+- Axios: gọi API.
+- Bootstrap và Bootstrap Icons.
+- Chart.js và react-chartjs-2: biểu đồ dashboard.
+- React Markdown và remark-gfm: render câu trả lời Markdown.
+- Sass.
+- React Scripts.
+
+3.3. AI/RAG
+- Gemini API để sinh câu trả lời.
+- Gemini embedding model nếu bật embedding search.
+- RAG: lấy context từ knowledge_bases và admission_majors rồi đưa vào AI.
+- Cache câu trả lời bằng CHAT_CACHE_TTL_SECONDS.
+
+
+4. CẤU TRÚC DATABASE CHÍNH
+--------------------------
+4.1. chat_logs
+Lưu lịch sử hỏi đáp và dữ liệu thống kê.
+
+Cột quan trọng:
+- session_id
+- platform
+- user_query
+- bot_response
+- intent
+- major_name
+- admission_year
+- admission_method
+- score
+- province
+- entities
+- agent_steps
+- retrieval_summary
+- response_time
+- created_at, updated_at
+
+4.2. knowledge_bases
+Lưu tri thức từ website/PDF.
+
+Cột thường dùng:
+- category
+- source_type
+- title
+- content
+- url
+- pdf_links
+- image_links
+- embedding
+- published_at
+
+4.3. admission_majors
+Lưu dữ liệu ngành tuyển sinh đã chuẩn hóa.
+
+Cột chính:
+- year
+- major_name
+- major_code
+- subject_groups
+- score_thpt
+- score_hoc_ba
+- score_dgnl
+- quota
+- tuition_fee
+- description
+- career_paths
+- source_url
+
+4.4. faq_questions
+Lưu câu hỏi gợi ý.
+
+Cột chính:
+- question
+- category
+- source_type
+- knowledge_base_id
+
+4.5. users và personal_access_tokens
+Lưu tài khoản admin và token Sanctum.
+
+
+5. CÀI ĐẶT BACKEND
+------------------
+Yêu cầu:
+- PHP 8.2 trở lên.
+- Composer.
+- MySQL hoặc SQLite.
+- Node.js nếu cần build asset Laravel/Vite.
+
+Lệnh cài đặt:
+cd backend
+composer install
+copy .env.example .env
+php artisan key:generate
+php artisan migrate
+php artisan db:seed
+php artisan serve
+
+Nếu dùng PowerShell và lệnh copy không được thì dùng:
+Copy-Item .env.example .env
+
+Backend mặc định chạy ở:
+http://127.0.0.1:8000
+
+Kiểm tra backend:
+GET http://127.0.0.1:8000/api/health
+
+
+6. CÀI ĐẶT FRONTEND
+-------------------
+Yêu cầu:
+- Node.js.
+- npm.
+
+Lệnh cài đặt:
+cd frontend
+npm install
+npm start
+
+Nếu PowerShell chặn npm.ps1 thì dùng:
+npm.cmd install
+npm.cmd start
+
+Frontend mặc định chạy ở:
+http://localhost:3000
+
+Nếu cần cấu hình API backend, tạo file frontend/.env:
+REACT_APP_API_URL=http://127.0.0.1:8000/api
+
+Build production:
+cd frontend
+npm.cmd run build
+
+
+7. CẤU HÌNH .ENV BACKEND QUAN TRỌNG
+-----------------------------------
+Ví dụ:
+APP_NAME="TNU Admission Chatbot"
+APP_ENV=local
+APP_DEBUG=true
+APP_URL=http://127.0.0.1:8000
+
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=ten_database
+DB_USERNAME=root
+DB_PASSWORD=
+
+GEMINI_API_KEY=your_key_here
+GEMINI_MODEL=gemini-2.5-flash
+GEMINI_TIMEOUT=60
+GEMINI_TEMPERATURE=0.2
+GEMINI_TOP_P=0.8
+GEMINI_TOP_K=40
+
+AI_ENABLE_EMBEDDING_SEARCH=false
+GEMINI_EMBEDDING_MODEL=gemini-embedding-001
+EMBEDDING_LOCAL_PREFILTER_LIMIT=200
+VECTOR_STORE_DRIVER=local
+CHAT_CACHE_TTL_SECONDS=3600
+
+ADMIN_API_AUTH=true
+ADMIN_NAME=Administrator
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=admin123456
+
+Lưu ý production:
+- APP_DEBUG=false
+- ADMIN_API_AUTH=true
+- Không public dashboard/chat logs nếu chưa có auth.
+
+
+8. CÁC LỆNH CHẠY DỰ ÁN
+----------------------
+Chạy backend:
+cd backend
+php artisan serve
+
+Chạy frontend:
+cd frontend
+npm.cmd start
+
+Chạy test backend:
+cd backend
+php artisan test
+
+Chạy riêng test chatbot:
+cd backend
+php artisan test --filter=ChatbotApiTest
+
+Generate Swagger docs:
+cd backend
+php artisan l5-swagger:generate
+
+Clear cache/config:
+cd backend
+php artisan optimize:clear
+
+
+9. CÁC API CHÍNH
+----------------
+Public:
+- GET /api/health
+- POST /api/chat
+- GET /api/faq-questions
+- POST /api/login
+
+Admin, tùy thuộc ADMIN_API_AUTH:
+- GET /api/me
+- POST /api/logout
+- POST /api/register
+- GET /api/chat-logs
+- GET /api/chat-logs/{id}
+- DELETE /api/chat-logs/{id}
+- POST /api/chat-logs/import
+- CRUD /api/knowledge-bases
+- CRUD /api/admission-majors
+- GET /api/dashboard/overview
+- GET /api/dashboard/top-majors
+- GET /api/dashboard/hot-majors
+- GET /api/dashboard/questions-by-intent
+- GET /api/dashboard/questions-by-day
+- GET /api/dashboard/questions-by-period
+- GET /api/dashboard/province-heatmap
+- GET /api/dashboard/admission-methods
+- GET /api/dashboard/platforms
+- GET /api/dashboard/trends
+- GET /api/dashboard/realtime
+- GET /api/dashboard/export
+
+
+10. CÁCH SỬ DỤNG CHATBOT
+------------------------
+1. Mở frontend.
+2. Nhập câu hỏi vào ô chat.
+3. Bấm nút gửi hoặc Enter.
+4. Trong lúc chờ, giao diện hiện "Đang suy nghĩ ...".
+5. Backend phân tích câu hỏi, tìm context, gọi AI và trả câu trả lời.
+6. Tin nhắn chatbot có:
+   - Giờ trả lời.
+   - Sao chép.
+   - Gửi lại.
+   - Like/dislike.
+7. Bên dưới chat có câu hỏi gợi ý liên quan đến major_name mới nhất trong chat_logs.
+8. Bấm "Cuộc mới" để tạo phiên chat mới.
+
+Ví dụ câu hỏi:
+- Ngành Công nghệ thông tin lấy bao nhiêu điểm?
+- Học phí ngành Kế toán là bao nhiêu?
+- Ngành Thú y xét tổ hợp nào?
+- Em giỏi Toán và thích lập trình thì nên học ngành nào?
+- Chỉ tiêu ngành Ngôn ngữ Anh năm nay?
+
+
+11. CÁCH THÊM DỮ LIỆU VÀO DATABASE
+----------------------------------
+11.1. Chạy migration tạo bảng
+cd backend
+php artisan migrate
+
+Làm lại database từ đầu, cần cẩn thận vì sẽ xóa dữ liệu:
+cd backend
+php artisan migrate:fresh --seed
+
+11.2. Tạo admin mặc định
+cd backend
+php artisan db:seed
+
+Tài khoản mặc định phụ thuộc DatabaseSeeder và .env:
+ADMIN_NAME=Administrator
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=admin123456
+
+11.3. Import knowledge_bases từ JSON
+Lệnh:
+cd backend
+php artisan knowledge:import duong_dan_file.json
+
+Ví dụ:
+php artisan knowledge:import ../frontend/src/ttn_data/ttn_all_data.json
+
+Format JSON tối thiểu:
+[
+  {
+    "title": "Ngành Công nghệ thông tin",
+    "content": "Nội dung tuyển sinh...",
+    "category": "nganh_dao_tao",
+    "source_type": "website",
+    "url": "https://example.com/cong-nghe-thong-tin"
+  }
+]
+
+11.4. Import PDF đã extract vào knowledge_bases
+Lệnh:
+cd backend
+php artisan import:pdf-extracted duong_dan_file.json
+
+Ví dụ:
+php artisan import:pdf-extracted ../frontend/src/ttn_data/pdf_extracted.json
+
+Nếu muốn xóa dữ liệu PDF cũ trước khi import:
+php artisan import:pdf-extracted ../frontend/src/ttn_data/pdf_extracted.json --fresh
+
+11.5. Import admission_majors từ JSON
+Lệnh:
+cd backend
+php artisan import:admission-majors duong_dan_file_hoac_thu_muc --year=2026
+
+Ví dụ import một file:
+php artisan import:admission-majors storage/app/admission_majors_2026.json --year=2026
+
+Ví dụ import cả thư mục:
+php artisan import:admission-majors storage/app/admission-majors --year=2026
+
+Format JSON tối thiểu:
+[
+  {
+    "year": 2026,
+    "major_name": "Công nghệ thông tin",
+    "major_code": "7480201",
+    "subject_groups": ["A00", "A01", "D01"],
+    "score_thpt": 22.5,
+    "score_hoc_ba": 24.0,
+    "score_dgnl": 650,
+    "quota": 120,
+    "tuition_fee": "Theo quy định của trường",
+    "description": "Mô tả chương trình đào tạo",
+    "career_paths": "Lập trình viên, kiểm thử phần mềm, quản trị hệ thống",
+    "source_url": "https://example.com"
+  }
+]
+
+11.6. Chuẩn hóa admission_majors từ knowledge_bases
+Nếu knowledge_bases đã có category = nganh_dao_tao, có thể chuẩn hóa sang admission_majors:
+cd backend
+php artisan admission:majors-normalize --year=2026
+
+Nếu cần chuẩn hóa năm khác:
+php artisan admission:majors-normalize --year=2025
+
+11.7. Tạo FAQ/câu hỏi gợi ý từ knowledge_bases bằng Gemini
+Lệnh:
+cd backend
+php artisan faq:generate --limit=50
+
+Nếu muốn xóa FAQ cũ rồi tạo lại:
+php artisan faq:generate --fresh --limit=50
+
+Lưu ý:
+- Cần GEMINI_API_KEY trong .env.
+- Lệnh có sleep giữa các item để giảm rate limit.
+
+11.8. Tạo embedding cho knowledge_bases
+Lệnh:
+cd backend
+php artisan embedding:knowledge --limit=100
+
+Tạo lại embedding kể cả record đã có embedding:
+php artisan embedding:knowledge --limit=100 --fresh
+
+Lưu ý:
+- Cần GEMINI_API_KEY.
+- Nếu AI_ENABLE_EMBEDDING_SEARCH=false thì chatbot vẫn chạy theo tìm kiếm thông thường.
+
+11.9. Import chat_logs bằng API
+Endpoint:
+POST /api/chat-logs/import
+
+Body JSON:
+{
+  "data": [
+    {
+      "session_id": "session-demo-1",
+      "platform": "web",
+      "user_query": "Ngành Công nghệ thông tin lấy bao nhiêu điểm?",
+      "bot_response": "Điểm chuẩn phụ thuộc năm và phương thức xét tuyển.",
+      "created_at": "2026-05-21 10:00:00"
+    }
+  ]
+}
+
+Nếu ADMIN_API_AUTH=true thì cần đăng nhập và gửi Bearer token.
+
+11.10. Thêm dữ liệu bằng Laravel Tinker
+Lệnh mở tinker:
+cd backend
+php artisan tinker
+
+Thêm admission major:
+App\Models\AdmissionMajor::create([
+  'year' => 2026,
+  'major_name' => 'Công nghệ thông tin',
+  'major_code' => '7480201',
+  'subject_groups' => ['A00', 'A01', 'D01'],
+  'score_thpt' => 22.5,
+  'score_hoc_ba' => 24.0,
+  'quota' => 120,
+  'tuition_fee' => 'Theo quy định của trường',
+  'description' => 'Đào tạo lập trình, hệ thống thông tin, cơ sở dữ liệu.',
+  'career_paths' => 'Lập trình viên, kiểm thử phần mềm, quản trị hệ thống.',
+  'source_url' => 'https://example.com'
+]);
+
+Thêm knowledge base:
+App\Models\KnowledgeBase::create([
+  'category' => 'nganh_dao_tao',
+  'source_type' => 'manual',
+  'title' => 'Ngành Công nghệ thông tin',
+  'content' => 'Thông tin tuyển sinh ngành Công nghệ thông tin...',
+  'url' => 'manual://cong-nghe-thong-tin'
+]);
+
+Thêm FAQ:
+App\Models\FaqQuestion::create([
+  'question' => 'Học phí ngành Công nghệ thông tin là bao nhiêu?',
+  'category' => 'hoc_phi',
+  'source_type' => 'manual'
+]);
+
+Thêm chat log:
+App\Models\ChatLog::create([
+  'session_id' => 'session-demo',
+  'platform' => 'web',
+  'user_query' => 'Ngành CNTT lấy bao nhiêu điểm?',
+  'bot_response' => 'Điểm chuẩn ngành CNTT tùy theo năm và phương thức xét tuyển.',
+  'intent' => 'diem_chuan',
+  'major_name' => 'Công nghệ thông tin',
+  'admission_year' => 2026,
+  'admission_method' => 'thpt',
+  'response_time' => 1.2
+]);
+
+11.11. Thêm dữ liệu bằng SQL trực tiếp
+Ví dụ thêm ngành:
+INSERT INTO admission_majors
+(year, major_name, major_code, subject_groups, score_thpt, score_hoc_ba, quota, tuition_fee, description, career_paths, source_url, created_at, updated_at)
+VALUES
+(2026, 'Công nghệ thông tin', '7480201', '["A00","A01","D01"]', 22.5, 24.0, 120, 'Theo quy định của trường', 'Mô tả ngành', 'Lập trình viên, kiểm thử phần mềm', 'manual', NOW(), NOW());
+
+Ví dụ thêm knowledge:
+INSERT INTO knowledge_bases
+(category, source_type, title, content, url, created_at, updated_at)
+VALUES
+('nganh_dao_tao', 'manual', 'Ngành Công nghệ thông tin', 'Nội dung tuyển sinh...', 'manual://cntt', NOW(), NOW());
+
+Ví dụ thêm FAQ:
+INSERT INTO faq_questions
+(question, category, source_type, created_at, updated_at)
+VALUES
+('Học phí ngành Công nghệ thông tin là bao nhiêu?', 'hoc_phi', 'manual', NOW(), NOW());
+
+Lưu ý nếu dùng SQLite thì thay NOW() bằng datetime('now').
+
+
+12. LUỒNG HOẠT ĐỘNG CHATBOT
+---------------------------
+1. Frontend gửi POST /api/chat với:
+   - message
+   - platform
+   - history gần nhất
+   - header X-Session-ID
+2. Backend QuestionAnalyzerService phân tích intent/major/year/method/score/province.
+3. KnowledgeSearchService tìm dữ liệu liên quan trong admission_majors và knowledge_bases.
+4. AiChatService gọi Gemini với prompt + context + history + câu hỏi.
+5. Backend lưu kết quả vào chat_logs.
+6. Frontend hiện câu trả lời.
+7. Frontend gọi GET /api/faq-questions?session_id=...
+8. Backend tìm major_name mới nhất trong chat_logs của session và trả câu hỏi gợi ý liên quan ngành đó.
+
+
+13. MỘT SỐ LỖI THƯỜNG GẶP
+-------------------------
+13.1. npm bị chặn trên PowerShell
+Lỗi:
+npm.ps1 cannot be loaded because running scripts is disabled
+
+Cách xử lý nhanh:
+npm.cmd install
+npm.cmd start
+npm.cmd run build
+
+13.2. Backend không kết nối database
+Kiểm tra .env:
+- DB_CONNECTION
+- DB_HOST
+- DB_DATABASE
+- DB_USERNAME
+- DB_PASSWORD
+
+Sau khi sửa .env:
+php artisan optimize:clear
+php artisan migrate
+
+13.3. Chatbot không trả lời AI
+Kiểm tra:
+- GEMINI_API_KEY đã có chưa.
+- Internet/server có gọi được Gemini không.
+- Log Laravel trong backend/storage/logs.
+
+13.4. Gợi ý câu hỏi không đúng ngành
+Kiểm tra:
+- Bảng chat_logs có major_name không.
+- Frontend có gửi session_id lên /api/faq-questions không.
+- QuestionAnalyzerService có detect được tên ngành không.
+
+13.5. Dashboard bị 401
+Nếu ADMIN_API_AUTH=true, cần đăng nhập /api/login và gửi token:
+Authorization: Bearer <token>
+
+
+14. LỆNH KIỂM TRA NHANH SAU KHI CÀI ĐẶT
+---------------------------------------
+Backend:
+cd backend
+php artisan migrate
+php artisan db:seed
+php artisan test
+php artisan serve
+
+Frontend:
+cd frontend
+npm.cmd install
+npm.cmd run build
+npm.cmd start
+
+Kiểm tra API:
+GET http://127.0.0.1:8000/api/health
+
+Gửi chat mẫu:
+POST http://127.0.0.1:8000/api/chat
+Header:
+X-Session-ID: session-test
+Body:
+{
+  "message": "Ngành Công nghệ thông tin lấy bao nhiêu điểm?",
+  "platform": "web",
+  "history": []
+}
+
+
+15. GHI CHÚ BẢO MẬT
+-------------------
+- Không commit file .env lên git.
+- Không public GEMINI_API_KEY.
+- Bật ADMIN_API_AUTH=true khi deploy.
+- APP_DEBUG=false khi deploy.
+- Nên giới hạn throttle API chat để tránh spam.
+- Backup database trước khi chạy migrate:fresh hoặc truncate FAQ.
+

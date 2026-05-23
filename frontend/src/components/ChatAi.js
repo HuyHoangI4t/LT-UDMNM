@@ -45,7 +45,7 @@ const capabilityGroups = [
 const createSession = () => ({
   id: `session-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
   title: 'Cuộc trò chuyện mới',
-  messages: [{ role: 'ai', text: defaultMessage }],
+  messages: [createChatMessage('ai', defaultMessage)],
 });
 
 const loadStoredSessions = () => {
@@ -82,6 +82,22 @@ const getGreeting = () => {
   return { text: 'buổi tối', icon: 'bi-moon-stars' };
 };
 
+const createChatMessage = (role, text, extra = {}) => ({
+  id: `msg-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
+  role,
+  text,
+  createdAt: new Date().toISOString(),
+  ...extra,
+});
+
+const formatMessageTime = (value) => {
+  const date = value ? new Date(value) : new Date();
+
+  return Number.isNaN(date.getTime())
+    ? ''
+    : date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+};
+
 const ChatAi = () => {
   const [sessions, setSessions] = useState(loadStoredSessions);
   const [selectedSessionId, setSelectedSessionId] = useState(
@@ -90,6 +106,7 @@ const ChatAi = () => {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [copiedMessageId, setCopiedMessageId] = useState('');
   const [suggestedQuestions, setSuggestedQuestions] = useState([]);
   const [suggestedPage, setSuggestedPage] = useState(0);
   const messagesContainerRef = useRef(null);
@@ -106,7 +123,8 @@ const ChatAi = () => {
   );
 
   const lastMessage = currentSession.messages[currentSession.messages.length - 1];
-  const canSend = useMemo(() => message.trim().length > 0 && !loading, [message, loading]);
+  const isReplyPending = loading && lastMessage?.role === 'user';
+  const canSend = useMemo(() => message.trim().length > 0 && !isReplyPending, [message, isReplyPending]);
   const suggestedPageCount = Math.max(1, Math.ceil(suggestedQuestions.length / suggestedPageSize));
   const visibleSuggestedQuestions = suggestedQuestions.slice(
     suggestedPage * suggestedPageSize,
@@ -152,8 +170,31 @@ const ChatAi = () => {
     );
   };
 
+  const copyMessage = async (text, messageId) => {
+    try {
+      await navigator.clipboard.writeText(text || '');
+      setCopiedMessageId(messageId);
+      window.setTimeout(() => {
+        setCopiedMessageId((current) => (current === messageId ? '' : current));
+      }, 1600);
+    } catch (error) {
+      console.warn('Không sao chép được nội dung chat.', error);
+    }
+  };
+
+  const setMessageFeedback = (sessionId, messageIndex, feedback) => {
+    updateSession(sessionId, (session) => ({
+      ...session,
+      messages: session.messages.map((item, index) =>
+        index === messageIndex
+          ? { ...item, feedback: item.feedback === feedback ? undefined : feedback }
+          : item
+      ),
+    }));
+  };
+
   const startNewSession = () => {
-    if (loading) return;
+    if (isReplyPending) return;
 
     const nextSession = createSession();
     setSessions((prev) => [...prev.slice(-9), nextSession]);
@@ -207,7 +248,7 @@ const ChatAi = () => {
   const handleSend = async (customMessage) => {
     const text = (customMessage ?? message).trim();
 
-    if (!text || loading || sendLockRef.current) return;
+    if (!text || isReplyPending || sendLockRef.current) return;
     sendLockRef.current = true;
 
     const sessionId = currentSession.id;
@@ -215,7 +256,7 @@ const ChatAi = () => {
       currentSession.title === 'Cuộc trò chuyện mới'
         ? formatSessionTitle(text)
         : currentSession.title;
-    const userMessage = { role: 'user', text };
+    const userMessage = createChatMessage('user', text);
     const nextMessages = [...currentSession.messages, userMessage];
 
     updateSession(sessionId, {
@@ -252,7 +293,7 @@ const ChatAi = () => {
       }
 
       const reply = response?.data?.data?.reply || 'Mình chưa nhận được phản hồi phù hợp.';
-      const aiMessage = { role: 'ai', text: reply };
+      const aiMessage = createChatMessage('ai', reply, { retryText: text });
 
       updateSession(sessionId, (session) => ({
         ...session,
@@ -264,26 +305,33 @@ const ChatAi = () => {
         setLoading(false);
       }
 
-      try {
-        const q = encodeURIComponent(text);
-        const resp = await axios.get(`${API_URL}/faq-questions?q=${q}`, {
-          timeout: FAQ_TIMEOUT_MS,
-          signal: controller.signal,
-        });
-        const qs = resp?.data?.data || [];
+      void axios.get(`${API_URL}/faq-questions`, {
+        params: {
+          q: text,
+          session_id: sessionId,
+        },
+        timeout: FAQ_TIMEOUT_MS,
+      })
+        .then((resp) => {
+          if (!mountedRef.current) return;
 
-        if (qs.length) {
-          setSuggestedQuestions(
-            qs.map((item) => (typeof item === 'string' ? item : item.question || ''))
-          );
-          setSuggestedPage(0);
-        } else {
+          const qs = resp?.data?.data || [];
+
+          if (qs.length) {
+            setSuggestedQuestions(
+              qs.map((item) => (typeof item === 'string' ? item : item.question || ''))
+            );
+            setSuggestedPage(0);
+          } else {
+            setSuggestedQuestions([]);
+          }
+        })
+        .catch((err) => {
+          if (!mountedRef.current) return;
+
+          console.warn('Không lấy được câu hỏi gợi ý sau chat.', err);
           setSuggestedQuestions([]);
-        }
-      } catch (err) {
-        console.warn('Không lấy được câu hỏi gợi ý sau chat.', err);
-        setSuggestedQuestions([]);
-      }
+        });
     } catch (error) {
       if (axios.isCancel(error) || error?.code === 'ERR_CANCELED') {
         return;
@@ -291,12 +339,10 @@ const ChatAi = () => {
 
       console.error('Chat error:', error);
 
-      const aiMessage = {
-        role: 'ai',
-        text: 'Không thể kết nối chatbot lúc này. Vui lòng thử lại.',
+      const aiMessage = createChatMessage('ai', 'Không thể kết nối chatbot lúc này. Vui lòng thử lại.', {
         error: true,
         retryText: text,
-      };
+      });
 
       updateSession(sessionId, (session) => ({
         ...session,
@@ -346,7 +392,7 @@ const ChatAi = () => {
             <h1>{currentSession.title}</h1>
           </div>
 
-          <button className="new-chat-btn" type="button" onClick={startNewSession} disabled={loading}>
+          <button className="new-chat-btn" type="button" onClick={startNewSession} disabled={isReplyPending}>
             <i className="bi bi-plus-lg" aria-hidden="true"></i>
             <span>Cuộc mới</span>
           </button>
@@ -374,7 +420,7 @@ const ChatAi = () => {
                     className="starter-question"
                     type="button"
                     onClick={() => handleSend(question)}
-                    disabled={loading}
+                    disabled={isReplyPending}
                   >
                     <i className="bi bi-send" aria-hidden="true"></i>
                     <span>{question}</span>
@@ -403,11 +449,21 @@ const ChatAi = () => {
             </div>
           )}
 
-          {currentSession.messages
-            .filter((item, index) => !(currentSession.messages.length <= 1 && index === 0))
-            .map((item, index) => (
+          {currentSession.messages.map((item, index) => {
+            if (currentSession.messages.length <= 1 && index === 0) {
+              return null;
+            }
+
+            const messageId = item.id || `${item.role}-${index}`;
+            const previousUserMessage = [...currentSession.messages]
+              .slice(0, index)
+              .reverse()
+              .find((messageItem) => messageItem.role === 'user');
+            const retryText = item.retryText || previousUserMessage?.text || '';
+
+            return (
               <div
-                key={`${item.role}-${index}`}
+                key={messageId}
                 className={`message-row ${item.role === 'user' ? 'user' : 'ai'}`}
               >
                 <div className="message-avatar" aria-hidden="true">
@@ -417,32 +473,73 @@ const ChatAi = () => {
                     <i className="bi bi-stars"></i>
                   )}
                 </div>
-                <div className={`message-bubble ${item.error ? 'error-bubble' : ''}`}>
-                  {renderMessageText(item.text)}
-                  {item.retryText && (
+                <div className="message-content">
+                  <div className={`message-bubble ${item.error ? 'error-bubble' : ''}`}>
+                    {renderMessageText(item.text)}
+                  </div>
+
+                  <div className="message-meta">
+                    <span className="message-time">{formatMessageTime(item.createdAt)}</span>
+
                     <button
-                      className="retry-btn"
+                      className="message-action-btn"
                       type="button"
-                      disabled={loading}
-                      onClick={() => handleSend(item.retryText)}
+                      onClick={() => copyMessage(item.text, messageId)}
+                      aria-label="Sao chép"
+                      title="Sao chép"
                     >
-                      <i className="bi bi-arrow-clockwise" aria-hidden="true"></i>
-                      <span>Thử lại</span>
+                      <i className={`bi ${copiedMessageId === messageId ? 'bi-check2' : 'bi-copy'}`} aria-hidden="true"></i>
+                      <span>{copiedMessageId === messageId ? 'Đã chép' : 'Sao chép'}</span>
                     </button>
-                  )}
+
+                    {item.role === 'ai' && (
+                      <>
+                        <button
+                          className="message-action-btn"
+                          type="button"
+                          disabled={isReplyPending || !retryText}
+                          onClick={() => handleSend(retryText)}
+                          aria-label="Gửi lại"
+                          title="Gửi lại"
+                        >
+                          <i className="bi bi-arrow-clockwise" aria-hidden="true"></i>
+                          <span>Gửi lại</span>
+                        </button>
+
+                        <button
+                          className={`message-icon-btn ${item.feedback === 'like' ? 'active' : ''}`}
+                          type="button"
+                          onClick={() => setMessageFeedback(currentSession.id, index, 'like')}
+                          aria-label="Thích"
+                          title="Thích"
+                        >
+                          <i className="bi bi-hand-thumbs-up" aria-hidden="true"></i>
+                        </button>
+
+                        <button
+                          className={`message-icon-btn ${item.feedback === 'dislike' ? 'active' : ''}`}
+                          type="button"
+                          onClick={() => setMessageFeedback(currentSession.id, index, 'dislike')}
+                          aria-label="Không thích"
+                          title="Không thích"
+                        >
+                          <i className="bi bi-hand-thumbs-down" aria-hidden="true"></i>
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
-            ))}
+            );
+          })}
 
-          {loading && (
+          {isReplyPending && (
             <div className="message-row ai">
               <div className="message-avatar" aria-hidden="true">
                 <i className="bi bi-stars"></i>
               </div>
-              <div className="message-bubble loading-bubble" aria-label="Đang trả lời">
-                <span></span>
-                <span></span>
-                <span></span>
+              <div className="message-bubble thinking-bubble" aria-label="Đang suy nghĩ">
+                Đang suy nghĩ ...
               </div>
             </div>
           )}
@@ -467,7 +564,7 @@ const ChatAi = () => {
                     key={`q-${suggestedPage}-${idx}`}
                     className="related-question"
                     type="button"
-                    disabled={loading}
+                    disabled={isReplyPending}
                     onClick={() => handleSend(question)}
                   >
                     <i className="bi bi-chat-left-text" aria-hidden="true"></i>
@@ -518,7 +615,7 @@ const ChatAi = () => {
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             placeholder="Bạn muốn hỏi gì?"
-            disabled={loading}
+            disabled={isReplyPending}
             aria-label="Nội dung câu hỏi"
           />
 

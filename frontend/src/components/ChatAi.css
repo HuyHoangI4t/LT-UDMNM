@@ -277,6 +277,22 @@
     color: #0369a1;
 }
 
+.message-content {
+    max-width: min(76%, 720px);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.message-row.user .message-content {
+    align-items: flex-end;
+}
+
+.message-content .message-bubble {
+    max-width: 100%;
+}
+
 .message-bubble {
     max-width: min(76%, 720px);
     width: fit-content;
@@ -297,6 +313,66 @@
     border-radius: 14px 14px 4px 14px;
     background: #2563eb;
     color: #ffffff;
+}
+
+.message-meta {
+    max-width: 100%;
+    color: #94a3b8;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.message-row.user .message-meta {
+    justify-content: flex-end;
+}
+
+.message-time {
+    padding: 4px 0;
+    white-space: nowrap;
+}
+
+.message-action-btn,
+.message-icon-btn {
+    min-height: 28px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    transition: background 0.18s ease, color 0.18s ease;
+}
+
+.message-action-btn {
+    padding: 0 7px;
+}
+
+.message-icon-btn {
+    width: 28px;
+    padding: 0;
+}
+
+.message-action-btn:hover:not(:disabled),
+.message-icon-btn:hover:not(:disabled),
+.message-icon-btn.active {
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.message-action-btn:disabled,
+.message-icon-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.48;
 }
 
 .message-bubble strong {
@@ -471,6 +547,11 @@
 
 .loading-bubble span:nth-child(3) {
     animation-delay: 0.4s;
+}
+
+.thinking-bubble {
+    color: #475569;
+    font-weight: 700;
 }
 
 .related-box {
@@ -731,6 +812,10 @@
     .message-bubble {
         max-width: calc(100% - 44px);
         font-size: 14px;
+    }
+
+    .message-content {
+        max-width: calc(100% - 44px);
     }
 
     .related-list {

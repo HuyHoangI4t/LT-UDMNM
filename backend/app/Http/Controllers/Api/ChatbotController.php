@@ -153,7 +153,16 @@ class ChatbotController extends Controller
     {
         try {
             $q = trim($request->query('q', ''));
+            $sessionId = trim($request->query('session_id', $request->header('X-Session-ID', '')));
             $limit = min(max((int) $request->query('limit', 12), 1), 20);
+            $majorName = $this->findLatestMajorName($sessionId);
+
+            if ($majorName) {
+                return response()->json([
+                    'status' => 'success',
+                    'data' => $this->buildMajorSuggestedQuestions($majorName, $limit),
+                ], 200);
+            }
 
             $query = FaqQuestion::query();
 
@@ -213,6 +222,67 @@ class ChatbotController extends Controller
             ->take(6)
             ->values()
             ->toArray();
+    }
+
+    private function findLatestMajorName(string $sessionId): ?string
+    {
+        if ($sessionId === '') {
+            return null;
+        }
+
+        return ChatLog::query()
+            ->where('session_id', $sessionId)
+            ->whereNotNull('major_name')
+            ->where('major_name', '<>', '')
+            ->latest('id')
+            ->value('major_name');
+    }
+
+    private function buildMajorSuggestedQuestions(string $majorName, int $limit): array
+    {
+        $majorLike = '%' . $majorName . '%';
+
+        $faqItems = FaqQuestion::query()
+            ->leftJoin('knowledge_bases', 'knowledge_bases.id', '=', 'faq_questions.knowledge_base_id')
+            ->where(function ($sub) use ($majorLike) {
+                $sub->where('faq_questions.question', 'like', $majorLike)
+                    ->orWhere('faq_questions.category', 'like', $majorLike)
+                    ->orWhere('knowledge_bases.title', 'like', $majorLike)
+                    ->orWhere('knowledge_bases.content', 'like', $majorLike);
+            })
+            ->select('faq_questions.question', 'faq_questions.category')
+            ->selectRaw(
+                '(CASE WHEN faq_questions.question LIKE ? THEN 30 ELSE 0 END
+                + CASE WHEN knowledge_bases.title LIKE ? THEN 15 ELSE 0 END
+                + CASE WHEN knowledge_bases.content LIKE ? THEN 5 ELSE 0 END) as relevance',
+                [$majorLike, $majorLike, $majorLike]
+            )
+            ->orderByDesc('relevance')
+            ->orderByDesc('faq_questions.id')
+            ->limit($limit)
+            ->get()
+            ->map(fn ($item) => [
+                'question' => $item->question,
+                'category' => $item->category,
+            ]);
+
+        $templateItems = collect([
+            ['question' => "Điểm chuẩn ngành {$majorName} các năm gần đây là bao nhiêu?", 'category' => 'diem_chuan'],
+            ['question' => "Học phí ngành {$majorName} là bao nhiêu?", 'category' => 'hoc_phi'],
+            ['question' => "Ngành {$majorName} xét tuyển những tổ hợp môn nào?", 'category' => 'to_hop'],
+            ['question' => "Chỉ tiêu tuyển sinh ngành {$majorName} năm nay là bao nhiêu?", 'category' => 'chi_tieu'],
+            ['question' => "Mã ngành {$majorName} là gì?", 'category' => 'ma_nganh'],
+            ['question' => "Học ngành {$majorName} ra trường làm công việc gì?", 'category' => 'co_hoi_viec_lam'],
+            ['question' => "Chương trình đào tạo ngành {$majorName} học những gì?", 'category' => 'chuong_trinh_dao_tao'],
+            ['question' => "Ngành {$majorName} có phù hợp với năng lực của em không?", 'category' => 'tu_van_nganh'],
+        ]);
+
+        return $faqItems
+            ->concat($templateItems)
+            ->unique('question')
+            ->take($limit)
+            ->values()
+            ->all();
     }
 
     private function buildChatCacheKey(string $message, array $knowledge, array $analysis, array $history): string
