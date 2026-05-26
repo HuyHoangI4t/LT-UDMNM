@@ -91,6 +91,8 @@ class ChatbotController extends Controller
                 $botReply = $this->buildFallbackReply($knowledge);
             }
 
+            $botReply = $this->normalizeSourceLines($botReply);
+
             $agentSteps[] = [
                 'step' => 'llm_generation',
                 'status' => $aiError ? 'degraded' : 'completed',
@@ -353,6 +355,11 @@ class ChatbotController extends Controller
         if (!empty($knowledgeBases)) {
             $first = $knowledgeBases[0];
             $content = trim(mb_substr((string) ($first['content'] ?? ''), 0, 1200, 'UTF-8'));
+            $source = trim((string) ($first['url'] ?? ''));
+
+            if ($source !== '') {
+                $content = trim($content . "\n\nNguồn: {$source}");
+            }
 
             return trim("Mình tìm thấy phần dữ liệu liên quan sau:\n\n"
                 . (($first['title'] ?? '') ? "**{$first['title']}**\n" : '')
@@ -360,6 +367,14 @@ class ChatbotController extends Controller
         }
 
         return 'Mình chưa tìm thấy dữ liệu phù hợp để trả lời chính xác câu hỏi này. Bạn thử hỏi rõ hơn theo tên ngành, năm tuyển sinh hoặc phương thức xét tuyển nhé.';
+    }
+
+    private function normalizeSourceLines(string $answer): string
+    {
+        $answer = preg_replace('/[ \t]+(Nguồn(?:\s+tham\s+khảo)?|Source)\s*:/iu', "\n$1:", $answer) ?? $answer;
+        $answer = preg_replace('/([^\n])\s*(-\s*)?(Nguồn(?:\s+tham\s+khảo)?|Source)\s*:/iu', "$1\n$3:", $answer) ?? $answer;
+
+        return trim($answer);
     }
 
     private function buildFaqRelevanceScore(string $fullLike, array $keywords): array

@@ -39,7 +39,7 @@ TỪ VIẾT TẮT:
 - IT = Công nghệ thông tin
 - SP = Sư phạm
 - Y đa khoa = Y khoa
-- VLVH = Vừa làm vừa học
+- VLVH = Vừa làm vừa học,..
 
 CÁCH TRẢ LỜI THEO Ý ĐỊNH:
 
@@ -127,11 +127,12 @@ KHI CONTEXT KHÔNG ĐỦ:
 
 VÍ DỤ TRẢ LỜI TỐT:
 Ngành: Công nghệ thông tin
-Mã ngành: 7480201
+Mã ngành: ...
 Tổ hợp xét tuyển: A00, A01
 Điểm chuẩn năm 2025:
-- THPT: 22.5
-- Học bạ: 25.0
+
+- THPT: ...
+- Học bạ: ...
 Nguồn: https://...
 
 VÍ DỤ TRẢ LỜI SAI:

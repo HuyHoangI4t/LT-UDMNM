@@ -56,8 +56,9 @@ YÊU CẦU TRẢ LỜI:
 ";
 
         $answer = $this->askGemini($systemPrompt, $finalPrompt);
+        $answer = $this->guardAgainstUnsupportedClaims($answer, $context);
 
-        return $this->guardAgainstUnsupportedClaims($answer, $context);
+        return $this->normalizeSourceLines($answer);
     }
 
     public function askGemini(string $systemPrompt, string $finalPrompt): string
@@ -182,5 +183,13 @@ Quy tắc bắt buộc:
         }
 
         return $answer;
+    }
+
+    private function normalizeSourceLines(string $answer): string
+    {
+        $answer = preg_replace('/[ \t]+(Nguồn(?:\s+tham\s+khảo)?|Source)\s*:/iu', "\n$1:", $answer) ?? $answer;
+        $answer = preg_replace('/([^\n])\s*(-\s*)?(Nguồn(?:\s+tham\s+khảo)?|Source)\s*:/iu', "$1\n$3:", $answer) ?? $answer;
+
+        return trim($answer);
     }
 }
