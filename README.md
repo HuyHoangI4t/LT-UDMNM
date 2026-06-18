@@ -11,8 +11,6 @@
 
 Hỗ trợ tư vấn tuyển sinh tự động với trí tuệ nhân tạo, tích hợp dữ liệu admission, phân tích ý định câu hỏi, và quản lý analytics toàn diện.
 
-[Demo](#) • [Tài liệu](#) • [Bắt đầu](#) • [API](#) • [Triển khai](#)
-
 </div>
 
 ---
